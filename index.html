@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>myDumbSite</title>
+    <style>
+        body {
+            margin: 0;
+            background: #fff;
+            overflow: hidden
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const s = new THREE.Scene(), cam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 1, 2e3), r = new THREE.WebGLRenderer({ antialias: 1 });
+        cam.position.z = 120; r.setSize(innerWidth, innerHeight); r.setPixelRatio(devicePixelRatio); document.body.appendChild(r.domElement);
+        s.add(new THREE.AmbientLight(0x333333));
+        const L = new THREE.SpotLight(0xffffff, 2, 500, Math.PI / 6, .4, 1); L.position.set(0, 40, 120); s.add(L);
+        const F = 0.045; let mesh, geo;
+        const fit = () => {
+            if (!mesh) return;
+            geo.computeBoundingBox();
+            const bb = geo.boundingBox, w = bb.max.x - bb.min.x, h = bb.max.y - bb.min.y;
+            const sc = (Math.min(innerWidth, innerHeight) * F) / Math.max(w, h);
+            mesh.scale.set(sc, sc, sc);
+            mesh.position.x = -(w * sc) / 2; mesh.position.y = -(h * sc) / 2;
+        };
+        new THREE.FontLoader().load("https://threejs.org/examples/fonts/helvetiker_regular.typeface.json", f => {
+            geo = new THREE.TextGeometry("Dumbing Soon", { font: f, size: 14, height: 6, curveSegments: 16, bevelEnabled: 1, bevelThickness: .8, bevelSize: .6, bevelSegments: 4 });
+            const mat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: .65, roughness: .25 });
+            mesh = new THREE.Mesh(geo, mat); s.add(mesh); fit();
+            let t = 0; (function A() { requestAnimationFrame(A); t += .004; L.position.x = Math.sin(t) * 140; L.position.y = 40 + Math.cos(t * .7) * 20; r.render(s, cam); })();
+        });
+        addEventListener("resize", () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); r.setSize(innerWidth, innerHeight); fit(); });
+    </script>
+</body>
+
+</html>
