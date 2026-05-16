@@ -184,88 +184,113 @@
   button.copy-btn:hover { color: var(--text); border-color: #c8c5bd; }
 </style>
 </head>
-
 <body>
 <div class="page" id="app"></div>
-<script>
-// codec
 
-const TAG = 0xE0000
+<script>
+// ── codec ────────────────────────────────────────────────────────────────────
+//
+// Encodes bytes as combining characters stacked on '.'.
+// 32 combining chars = 5 bits each. Every 8 combining chars encode 5 bytes.
+// A 3-byte big-endian length prefix is prepended for exact binary round-trips.
+//
+// encode(Uint8Array) -> string
+// decode(string)     -> Uint8Array
+
+const COMBINING = [
+  '\u0335','\u0336','\u0337','\u0338', // overlay strokes
+  '\u20D0','\u20D1','\u20D2','\u20D3','\u20D4','\u20D5','\u20D6','\u20D7', // math overlays
+  '\u20D8','\u20D9','\u20DA','\u20E1','\u20E2','\u20E3','\u20E4','\u20E5',
+  '\u20E6','\u20E7','\u20E8','\u20E9',
+  '\u034D','\u031A','\u0315', // low-drift diacritics
+  '\u20DB','\u20DC','\u0360','\u0361','\u0359','\u0358','\u0362', // additions
+];
+
+const COMBINING_MAP = new Map(COMBINING.map((c, i) => [c, i]));
+const BASE_CHAR = '.';
 
 const encode = bytes => {
-  const payload = new Uint8Array(3 + bytes.length)
-  payload[0] = (bytes.length >> 16) & 0xFF
-  payload[1] = (bytes.length >>  8) & 0xFF
-  payload[2] =  bytes.length        & 0xFF
-  payload.set(bytes, 3)
+  const payload = new Uint8Array(3 + bytes.length);
+  payload[0] = (bytes.length >> 16) & 0xFF;
+  payload[1] = (bytes.length >>  8) & 0xFF;
+  payload[2] =  bytes.length        & 0xFF;
+  payload.set(bytes, 3);
 
-  let symbols = ''
-  for (let i = 0; i < payload.length; i += 3) {
-    const triplet = (payload[i] << 16) | (payload[i + 1] ?? 0) << 8 | (payload[i + 2] ?? 0)
-    symbols += String.fromCodePoint(TAG | (triplet >> 12))
-    if (i + 1 < payload.length)
-      symbols += String.fromCodePoint(TAG | (triplet & 0xFFF))
+  let out = BASE_CHAR;
+  let bitBuf = 0, bitLen = 0;
+  for (const byte of payload) {
+    bitBuf = (bitBuf << 8) | byte;
+    bitLen += 8;
+    while (bitLen >= 5) {
+      bitLen -= 5;
+      out += COMBINING[(bitBuf >> bitLen) & 0x1F];
+    }
   }
-  return symbols
-}
+  if (bitLen > 0)
+    out += COMBINING[(bitBuf << (5 - bitLen)) & 0x1F];
+  return out;
+};
 
 const decode = str => {
   const values = [...str]
-    .map(c => c.codePointAt(0))
-    .filter(cp => cp >= TAG && cp <= TAG + 0xFFF)
-    .map(cp => cp - TAG)
+    .map(c => COMBINING_MAP.get(c))
+    .filter(v => v !== undefined);
 
-  const bytes = []
-  for (let i = 0; i < values.length; i += 2) {
-    const triplet = (values[i] << 12) | (values[i + 1] ?? 0)
-    bytes.push((triplet >> 16) & 0xFF)
-    if (i + 1 < values.length) bytes.push((triplet >> 8) & 0xFF)
-    if (i + 1 < values.length) bytes.push( triplet       & 0xFF)
+  let bitBuf = 0, bitLen = 0;
+  const raw = [];
+  for (const val of values) {
+    bitBuf = (bitBuf << 5) | val;
+    bitLen += 5;
+    if (bitLen >= 8) {
+      bitLen -= 8;
+      raw.push((bitBuf >> bitLen) & 0xFF);
+    }
   }
 
-  const byteLength = (bytes[0] << 16) | (bytes[1] << 8) | bytes[2]
-  return new Uint8Array(bytes.slice(3, 3 + byteLength))
-}
+  const byteLength = (raw[0] << 16) | (raw[1] << 8) | raw[2];
+  return new Uint8Array(raw.slice(3, 3 + byteLength));
+};
 
 const streamThrough = (bytes, Transform) =>
   new Response(new Blob([bytes]).stream().pipeThrough(new Transform('gzip')))
-    .arrayBuffer().then(buf => new Uint8Array(buf))
+    .arrayBuffer().then(buf => new Uint8Array(buf));
 
-const compress   = bytes => streamThrough(bytes, CompressionStream)
-const decompress = bytes => streamThrough(bytes, DecompressionStream)
+const compress   = bytes => streamThrough(bytes, CompressionStream);
+const decompress = bytes => streamThrough(bytes, DecompressionStream);
 
 // helpers
 
-const utf8 = new TextEncoder()
-const dec = new TextDecoder()
-const SEP = '\u00AD' // word joiner
-const MAX_TITLE = 32
+const utf8 = new TextEncoder();
+const dec = new TextDecoder();
+const SEP = '👁️';
+const MAX_TITLE = 32;
 
-const baseUrl = () => location.href.split('#')[0]
+const baseUrl = () => location.href.split('#')[0];
 
 function defaultTitle() {
-  const n = new Date()
-  const pad = x => String(x).padStart(2, '0')
-  return `paste-${pad(n.getDate())}-${pad(n.getMonth()+1)}-${String(n.getFullYear()).slice(2)}-${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`
+  const n   = new Date();
+  const pad = x => String(x).padStart(2, '0');
+  return `paste-${pad(n.getDate())}-${pad(n.getMonth()+1)}-${String(n.getFullYear()).slice(2)}-${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`;
 }
 
 async function buildLink(text, title) {
-  const compressed = await compress(utf8.encode(text))
-  const fragment = encode(compressed) + SEP + title
-  return `${baseUrl()}#${fragment}`
+  const compressed = await compress(utf8.encode(text));
+  const fragment   = SEP + encode(compressed) + SEP + title;
+  return `${baseUrl()}#${fragment}`;
 }
 
 async function readFragment(raw) {
-  const sepIdx = raw.lastIndexOf(SEP)
-  const title = sepIdx >= 0 ? raw.slice(sepIdx + 1) : ''
-  const bytes = decode(raw)
+  const first = raw.indexOf(SEP);
+  const last  = raw.lastIndexOf(SEP);
+  const title = last > first ? raw.slice(last + SEP.length) : '';
+  const bytes = decode(raw);
   if (bytes.length === 0)
-    return { error: 'not-found' }
+    return { error: 'not-found' };
   try {
-    const text = dec.decode(await decompress(bytes))
-    return { text, title }
+    const text = dec.decode(await decompress(bytes));
+    return { text, title };
   } catch {
-    return { error: 'corrupt' }
+    return { error: 'corrupt' };
   }
 }
 
@@ -275,7 +300,7 @@ function renderEditor() {
   document.getElementById('app').innerHTML = `
     <div class="topbar">
       <div class="title-wrap">
-        <span class="pencil" id="pencil-icon">✎</span>
+        <span class="pencil" id="pencil-icon" style="font-family:serif">✎</span>
         <input id="title-input" type="text" value="${defaultTitle()}" maxlength="${MAX_TITLE}" spellcheck="false" autocomplete="off">
       </div>
       <div class="topbar-actions">
@@ -294,47 +319,53 @@ function renderEditor() {
         </div>
       </div>
     </div>
-  `
+  `;
 
-  const titleEl    = document.getElementById('title-input')
-  const editor     = document.getElementById('editor')
-  const overlay    = document.getElementById('overlay')
-  const shareLink  = document.getElementById('share-link')
-  const publishBtn = document.getElementById('btn-publish')
-  const copyBtn    = document.getElementById('btn-copy')
+  const titleEl    = document.getElementById('title-input');
+  const editor     = document.getElementById('editor');
+  const overlay    = document.getElementById('overlay');
+  const shareLink  = document.getElementById('share-link');
+  const publishBtn = document.getElementById('btn-publish');
+  const copyBtn    = document.getElementById('btn-copy');
 
-  titleEl.addEventListener('focus', () => titleEl.select())
+  titleEl.addEventListener('focus', () => titleEl.select());
 
-  publishBtn.disabled = true
+  publishBtn.disabled = true;
   editor.addEventListener('input', () => {
-    publishBtn.disabled = !editor.value.trim()
-  })
+    publishBtn.disabled = !editor.value.trim();
+  });
 
   publishBtn.addEventListener('click', async () => {
-    const text  = editor.value.trim()
-    if (!text) return
-    const title = titleEl.value.trim().slice(0, MAX_TITLE) || defaultTitle()
-    const link  = await buildLink(text, title)
+    const text  = editor.value.trim();
+    if (!text) return;
+    const title = titleEl.value.trim().slice(0, MAX_TITLE) || defaultTitle();
+    const link  = await buildLink(text, title);
 
-    editor.setAttribute('readonly', '')
-    titleEl.setAttribute('readonly', '')
-    document.getElementById('pencil-icon').style.display = 'none'
-    shareLink.value = link
-    overlay.classList.add('visible')
+    editor.setAttribute('readonly', '');
+    titleEl.setAttribute('readonly', '');
+    document.getElementById('pencil-icon').style.display = 'none';
+    shareLink.value = link;
+    overlay.classList.add('visible');
 
-    publishBtn.disabled = false
-    publishBtn.textContent = 'New Paste'
-    publishBtn.onclick = () => location.href = baseUrl()
-  })
+    publishBtn.disabled = false;
+    publishBtn.textContent = 'New Paste';
+    publishBtn.onclick = () => location.href = baseUrl();
+  });
 
-  shareLink.addEventListener('click', () => { this.select() })
+  shareLink.addEventListener('click', function () {
+    this.select();
+    navigator.clipboard.writeText(this.value).then(() => {
+      copyBtn.textContent = '⧉ Copied';
+      setTimeout(() => copyBtn.textContent = '⧉ Copy', 1800);
+    });
+  });
 
   copyBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(shareLink.value).then(() => {
-      copyBtn.textContent = '⧉ Copied'
-      setTimeout(() => copyBtn.textContent = '⧉ Copy', 1800)
-    })
-  })
+      copyBtn.textContent = '⧉ Copied';
+      setTimeout(() => copyBtn.textContent = '⧉ Copy', 1800);
+    });
+  });
 }
 
 // viewer mode
@@ -352,38 +383,38 @@ async function renderViewer(raw) {
     <div class="editor-wrap">
       <textarea id="editor" readonly spellcheck="false">Loading…</textarea>
     </div>
-  `
+  `;
 
-  const result = await readFragment(raw)
-  const editor = document.getElementById('editor')
+  const result = await readFragment(raw);
+  const editor = document.getElementById('editor');
 
   if (result.error === 'not-found') {
-    editor.value = 'Not found.'
-    return
+    editor.value = 'Not found.';
+    return;
   }
   if (result.error === 'corrupt') {
-    editor.value = 'This paste appears to be incomplete or corrupted.\nThe link may have been truncated.'
-    return
+    editor.value = 'This paste appears to be incomplete or corrupted.\nThe link may have been truncated.';
+    return;
   }
 
-  document.getElementById('view-title').textContent = result.title || 'untitled'
-  document.title = result.title || 'paste'
-  editor.value = result.text
+  document.getElementById('view-title').textContent = result.title || 'untitled';
+  document.title = result.title || 'paste';
+  editor.value   = result.text;
 }
 
 // router
 
 function route() {
-  const fragment = decodeURIComponent(location.hash.slice(1))
-  document.getElementById('app').innerHTML = ''
+  const fragment = decodeURIComponent(location.hash.slice(1));
+  document.getElementById('app').innerHTML = '';
   if (fragment)
-    renderViewer(fragment)
+    renderViewer(fragment);
   else
-    renderEditor()
+    renderEditor();
 }
 
-route()
-window.addEventListener('hashchange', route)
+route();
+window.addEventListener('hashchange', route);
 </script>
 </body>
 </html>
