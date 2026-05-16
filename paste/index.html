@@ -40,7 +40,7 @@
     min-height: 0;
   }
 
-  /* topbar */
+  /*  topbar  */
   .topbar {
     display: flex;
     align-items: center;
@@ -95,7 +95,7 @@
   button.primary:hover, a.primary:hover { opacity: 0.85; }
   button.primary:disabled { background: var(--border); color: var(--muted); cursor: default; }
 
-  /* editor */
+  /*  editor  */
   .editor-wrap { flex: 1; position: relative; min-height: 0; }
 
   #editor {
@@ -117,7 +117,7 @@
   #editor:focus    { border-color: #c8c5bd; }
   #editor[readonly] { cursor: default; }
 
-  /* overlay + share box */
+  /*  overlay + share box  */
   .overlay {
     display: none;
     position: absolute;
@@ -140,7 +140,7 @@
     flex-direction: column;
     gap: 1rem;
     width: 100%;
-    max-width: 490px;
+    max-width: 480px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.07);
   }
 
@@ -188,14 +188,14 @@
 <div class="page" id="app"></div>
 
 <script>
-// ── codec ────────────────────────────────────────────────────────────────────
+// codec
 //
 // Encodes bytes as combining characters stacked on '.'.
 // 32 combining chars = 5 bits each. Every 8 combining chars encode 5 bytes.
 // A 3-byte big-endian length prefix is prepended for exact binary round-trips.
 //
-// encode(Uint8Array) -> string
-// decode(string)     -> Uint8Array
+// encode(Uint8Array) → string
+// decode(string)     → Uint8Array
 
 const COMBINING = [
   '\u0335','\u0336','\u0337','\u0338', // overlay strokes
@@ -262,7 +262,7 @@ const decompress = bytes => streamThrough(bytes, DecompressionStream);
 
 const utf8 = new TextEncoder();
 const dec = new TextDecoder();
-const SEP = '👁️';
+const SEP = '👁';
 const MAX_TITLE = 32;
 
 const baseUrl = () => location.href.split('#')[0];
@@ -275,14 +275,14 @@ function defaultTitle() {
 
 async function buildLink(text, title) {
   const compressed = await compress(utf8.encode(text));
-  const fragment   = SEP + encode(compressed) + SEP + title;
+  const fragment = SEP + encode(compressed) + SEP + '>' + title;
   return `${baseUrl()}#${fragment}`;
 }
 
 async function readFragment(raw) {
   const first = raw.indexOf(SEP);
   const last  = raw.lastIndexOf(SEP);
-  const title = last > first ? raw.slice(last + SEP.length) : '';
+  const title = last > first ? raw.slice(last + SEP.length).replace(/^>/, '') : '';
   const bytes = decode(raw);
   if (bytes.length === 0)
     return { error: 'not-found' };
