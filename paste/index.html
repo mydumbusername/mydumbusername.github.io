@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>paste</title>
+<style>
+  :root {
+    --bg:      #f7f6f3;
+    --surface: #ffffff;
+    --border:  #e2e0da;
+    --text:    #2c2b28;
+    --muted:   #9b9890;
+    --accent:  #5c5bd4;
+    --mono:    'Courier New', Courier, monospace;
+    --sans:    system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 680px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+  }
+
+  /* topbar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+
+  .title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 3px;
+  }
+
+  .pencil { color: var(--muted); font-size: 14px; flex-shrink: 0; }
+
+  #title-input {
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    padding: 2px 0;
+    outline: none;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  #title-input:focus   { color: var(--text); cursor: text; }
+  #title-input[readonly] { pointer-events: none; }
+
+  .topbar-actions { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+
+  button.primary, a.primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 6px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: opacity 0.15s;
+  }
+  button.primary:hover, a.primary:hover { opacity: 0.85; }
+  button.primary:disabled { background: var(--border); color: var(--muted); cursor: default; }
+
+  /* editor */
+  .editor-wrap { flex: 1; position: relative; min-height: 0; }
+
+  #editor {
+    width: 100%;
+    height: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    padding: 1.25rem 1.5rem;
+    resize: none;
+    outline: none;
+    display: block;
+    transition: border-color 0.15s;
+  }
+  #editor:focus    { border-color: #c8c5bd; }
+  #editor[readonly] { cursor: default; }
+
+  /* overlay + share box */
+  .overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    background: rgba(247, 246, 243, 0.82);
+    backdrop-filter: blur(2px);
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .overlay.visible { display: flex; }
+
+  .share-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  }
+
+  .share-label { font-size: 13px; color: var(--muted); }
+
+  .share-link-row { display: flex; gap: 0.6rem; align-items: stretch; }
+
+  #share-link {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px 12px;
+    cursor: pointer;
+    outline: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    user-select: all;
+    transition: border-color 0.15s;
+  }
+  #share-link:focus { border-color: #c8c5bd; }
+
+  button.copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--muted);
+    padding: 8px 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  button.copy-btn:hover { color: var(--text); border-color: #c8c5bd; }
+</style>
+</head>
+
+<body>
+<div class="page" id="app"></div>
+<script>
+// codec
+
+const TAG = 0xE0000
+
+const encode = bytes => {
+  const payload = new Uint8Array(3 + bytes.length)
+  payload[0] = (bytes.length >> 16) & 0xFF
+  payload[1] = (bytes.length >>  8) & 0xFF
+  payload[2] =  bytes.length        & 0xFF
+  payload.set(bytes, 3)
+
+  let symbols = ''
+  for (let i = 0; i < payload.length; i += 3) {
+    const triplet = (payload[i] << 16) | (payload[i + 1] ?? 0) << 8 | (payload[i + 2] ?? 0)
+    symbols += String.fromCodePoint(TAG | (triplet >> 12))
+    if (i + 1 < payload.length)
+      symbols += String.fromCodePoint(TAG | (triplet & 0xFFF))
+  }
+  return symbols
+}
+
+const decode = str => {
+  const values = [...str]
+    .map(c => c.codePointAt(0))
+    .filter(cp => cp >= TAG && cp <= TAG + 0xFFF)
+    .map(cp => cp - TAG)
+
+  const bytes = []
+  for (let i = 0; i < values.length; i += 2) {
+    const triplet = (values[i] << 12) | (values[i + 1] ?? 0)
+    bytes.push((triplet >> 16) & 0xFF)
+    if (i + 1 < values.length) bytes.push((triplet >> 8) & 0xFF)
+    if (i + 1 < values.length) bytes.push( triplet       & 0xFF)
+  }
+
+  const byteLength = (bytes[0] << 16) | (bytes[1] << 8) | bytes[2]
+  return new Uint8Array(bytes.slice(3, 3 + byteLength))
+}
+
+const streamThrough = (bytes, Transform) =>
+  new Response(new Blob([bytes]).stream().pipeThrough(new Transform('gzip')))
+    .arrayBuffer().then(buf => new Uint8Array(buf))
+
+const compress   = bytes => streamThrough(bytes, CompressionStream)
+const decompress = bytes => streamThrough(bytes, DecompressionStream)
+
+// helpers
+
+const utf8 = new TextEncoder()
+const dec = new TextDecoder()
+const SEP = '\u2060' // word joiner
+const MAX_TITLE = 32
+
+const baseUrl = () => location.href.split('#')[0]
+
+function defaultTitle() {
+  const n = new Date()
+  const pad = x => String(x).padStart(2, '0')
+  return `paste-${pad(n.getDate())}-${pad(n.getMonth()+1)}-${String(n.getFullYear()).slice(2)}-${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`
+}
+
+async function buildLink(text, title) {
+  const compressed = await compress(utf8.encode(text))
+  const fragment = encode(compressed) + SEP + title
+  return `${baseUrl()}#${fragment}`
+}
+
+async function readFragment(raw) {
+  const sepIdx = raw.lastIndexOf(SEP)
+  const title = sepIdx >= 0 ? raw.slice(sepIdx + 1) : ''
+  const bytes = decode(raw)
+  if (bytes.length === 0)
+    return { error: 'not-found' }
+  try {
+    const text = dec.decode(await decompress(bytes))
+    return { text, title }
+  } catch {
+    return { error: 'corrupt' }
+  }
+}
+
+// editor mode
+
+function renderEditor() {
+  document.getElementById('app').innerHTML = `
+    <div class="topbar">
+      <div class="title-wrap">
+        <span class="pencil" id="pencil-icon">✎</span>
+        <input id="title-input" type="text" value="${defaultTitle()}" maxlength="${MAX_TITLE}" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="topbar-actions">
+        <button class="primary" id="btn-publish">Publish</button>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="editor" placeholder="your text here…" spellcheck="false"></textarea>
+      <div class="overlay" id="overlay">
+        <div class="share-box">
+          <div class="share-label">your paste link</div>
+          <div class="share-link-row">
+            <input id="share-link" type="text" readonly>
+            <button class="copy-btn" id="btn-copy">⧉ Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+
+  const titleEl    = document.getElementById('title-input')
+  const editor     = document.getElementById('editor')
+  const overlay    = document.getElementById('overlay')
+  const shareLink  = document.getElementById('share-link')
+  const publishBtn = document.getElementById('btn-publish')
+  const copyBtn    = document.getElementById('btn-copy')
+
+  titleEl.addEventListener('focus', () => titleEl.select())
+
+  publishBtn.disabled = true
+  editor.addEventListener('input', () => {
+    publishBtn.disabled = !editor.value.trim()
+  })
+
+  publishBtn.addEventListener('click', async () => {
+    const text  = editor.value.trim()
+    if (!text) return
+    const title = titleEl.value.trim().slice(0, MAX_TITLE) || defaultTitle()
+    const link  = await buildLink(text, title)
+
+    editor.setAttribute('readonly', '')
+    titleEl.setAttribute('readonly', '')
+    document.getElementById('pencil-icon').style.display = 'none'
+    shareLink.value = link
+    overlay.classList.add('visible')
+
+    publishBtn.disabled = false
+    publishBtn.textContent = 'New Paste'
+    publishBtn.onclick = () => location.href = baseUrl()
+  })
+
+  shareLink.addEventListener('click', () => { this.select() })
+
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(shareLink.value).then(() => {
+      copyBtn.textContent = '⧉ Copied'
+      setTimeout(() => copyBtn.textContent = '⧉ Copy', 1800)
+    })
+  })
+}
+
+// viewer mode
+
+async function renderViewer(raw) {
+  document.getElementById('app').innerHTML = `
+    <div class="topbar">
+      <div class="title-wrap" style="border-bottom:none;">
+        <span id="view-title" style="font-family:var(--mono);font-size:13px;color:var(--muted)"></span>
+      </div>
+      <div class="topbar-actions">
+        <a class="primary" href="${baseUrl()}">New paste</a>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="editor" readonly spellcheck="false">Loading…</textarea>
+    </div>
+  `
+
+  const result = await readFragment(raw)
+  const editor = document.getElementById('editor')
+
+  if (result.error === 'not-found') {
+    editor.value = 'Not found.'
+    return
+  }
+  if (result.error === 'corrupt') {
+    editor.value = 'This paste appears to be incomplete or corrupted.\nThe link may have been truncated.'
+    return
+  }
+
+  document.getElementById('view-title').textContent = result.title || 'untitled'
+  document.title = result.title || 'paste'
+  editor.value = result.text
+}
+
+// router
+
+function route() {
+  const fragment = decodeURIComponent(location.hash.slice(1))
+  document.getElementById('app').innerHTML = ''
+  if (fragment)
+    renderViewer(fragment)
+  else
+    renderEditor()
+}
+
+route()
+window.addEventListener('hashchange', route)
+</script>
+</body>
+</html>
