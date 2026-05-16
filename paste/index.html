@@ -238,7 +238,7 @@ const decompress = bytes => streamThrough(bytes, DecompressionStream)
 
 const utf8 = new TextEncoder()
 const dec = new TextDecoder()
-const SEP = '📋' // word joiner
+const SEP = '\u00AD' // word joiner
 const MAX_TITLE = 32
 
 const baseUrl = () => location.href.split('#')[0]
