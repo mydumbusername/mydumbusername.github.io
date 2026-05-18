@@ -40,7 +40,6 @@
     min-height: 0;
   }
 
-  /*  topbar  */
   .topbar {
     display: flex;
     align-items: center;
@@ -74,7 +73,7 @@
     cursor: pointer;
     transition: color 0.15s;
   }
-  #title-input:focus   { color: var(--text); cursor: text; }
+  #title-input:focus     { color: var(--text); cursor: text; }
   #title-input[readonly] { pointer-events: none; }
 
   .topbar-actions { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
@@ -95,7 +94,6 @@
   button.primary:hover, a.primary:hover { opacity: 0.85; }
   button.primary:disabled { background: var(--border); color: var(--muted); cursor: default; }
 
-  /*  editor  */
   .editor-wrap { flex: 1; position: relative; min-height: 0; }
 
   #editor {
@@ -117,7 +115,6 @@
   #editor:focus    { border-color: #c8c5bd; }
   #editor[readonly] { cursor: default; }
 
-  /*  overlay + share box  */
   .overlay {
     display: none;
     position: absolute;
@@ -182,113 +179,169 @@
     transition: color 0.15s, border-color 0.15s;
   }
   button.copy-btn:hover { color: var(--text); border-color: #c8c5bd; }
+
+  .chat-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .chat-toggle input[type=checkbox] {
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
 <div class="page" id="app"></div>
 
 <script>
-// codec
-//
-// Encodes bytes as combining characters stacked on '.'.
-// 32 combining chars = 5 bits each. Every 8 combining chars encode 5 bytes.
-// A 3-byte big-endian length prefix is prepended for exact binary round-trips.
-//
-// encode(Uint8Array) → string
-// decode(string)     → Uint8Array
+// codec 1: tag block (invisible)
+// Fragment: #<tag chars>⁠Title (U+E0000–U+E0FFF, 12 bits/symbol, 3 bytes per 2 symbols)
 
-const COMBINING = [
-  '\u0335','\u0336','\u0337','\u0338', // overlay strokes
-  '\u20D0','\u20D1','\u20D2','\u20D3','\u20D4','\u20D5','\u20D6','\u20D7', // math overlays
-  '\u20D8','\u20D9','\u20DA','\u20E1','\u20E2','\u20E3','\u20E4','\u20E5',
-  '\u20E6','\u20E7','\u20E8','\u20E9',
-  '\u034D','\u031A','\u0315', // low-drift diacritics
-  '\u20DB','\u20DC','\u0360','\u0361','\u0359','\u0358','\u0362', // additions
-];
+const TAG = 0xE0000;
 
-const COMBINING_MAP = new Map(COMBINING.map((c, i) => [c, i]));
-const BASE_CHAR = '.';
-
-const encode = bytes => {
+const tagEncode = bytes => {
   const payload = new Uint8Array(3 + bytes.length);
   payload[0] = (bytes.length >> 16) & 0xFF;
   payload[1] = (bytes.length >>  8) & 0xFF;
   payload[2] =  bytes.length        & 0xFF;
   payload.set(bytes, 3);
 
-  let out = BASE_CHAR;
-  let bitBuf = 0, bitLen = 0;
-  for (const byte of payload) {
-    bitBuf = (bitBuf << 8) | byte;
-    bitLen += 8;
-    while (bitLen >= 5) {
-      bitLen -= 5;
-      out += COMBINING[(bitBuf >> bitLen) & 0x1F];
-    }
+  let out = '';
+  for (let i = 0; i < payload.length; i += 3) {
+    const n = (payload[i] << 16) | (payload[i+1] ?? 0) << 8 | (payload[i+2] ?? 0);
+    out += String.fromCodePoint(TAG | (n >> 12));
+    if (i + 1 < payload.length)
+      out += String.fromCodePoint(TAG | (n & 0xFFF));
   }
-  if (bitLen > 0)
-    out += COMBINING[(bitBuf << (5 - bitLen)) & 0x1F];
   return out;
 };
 
-const decode = str => {
-  const values = [...str]
-    .map(c => COMBINING_MAP.get(c))
-    .filter(v => v !== undefined);
+const tagDecode = str => {
+  const syms = [...str]
+    .map(c => c.codePointAt(0))
+    .filter(cp => cp >= TAG && cp <= TAG + 0xFFF)
+    .map(cp => cp - TAG);
 
-  let bitBuf = 0, bitLen = 0;
   const raw = [];
-  for (const val of values) {
-    bitBuf = (bitBuf << 5) | val;
-    bitLen += 5;
-    if (bitLen >= 8) {
-      bitLen -= 8;
-      raw.push((bitBuf >> bitLen) & 0xFF);
+  for (let i = 0; i < syms.length; i += 2) {
+    const n = (syms[i] << 12) | (syms[i+1] ?? 0);
+    raw.push((n >> 16) & 0xFF);
+    if (i + 1 < syms.length) raw.push((n >> 8) & 0xFF);
+    if (i + 1 < syms.length) raw.push( n       & 0xFF);
+  }
+  const len = (raw[0] << 16) | (raw[1] << 8) | raw[2];
+  return new Uint8Array(raw.slice(3, 3 + len));
+};
+
+// codec 2: combining chars (chat-friendly)
+// Fragment: #<encoded chars>📋Title
+// SET1 (8 chars, 3 bits) - base chars, each starts a new grapheme cluster
+// SET2 (128 chars, 7 bits) - combining marks, stack onto preceding SET1 char
+// 10 bits per SET1+SET2 pair, streamed from the byte sequence
+
+const SET1 = ['\u0485','\u0486','\u0364','\u0365','\u0366','\u0367','\uFE26','\uA672'];
+const SET2 = [
+  ...Array.from({length: 112}, (_, i) => String.fromCodePoint(0x0300 + i)), // U+0300–U+036F
+  '\u093C','\u094D','\u0951','\u0952','\u0953','\u0954','\u0955','\u0956','\u0957','\u0962','\u0963',
+  '\u0485','\u0486','\u0364','\u0365','\u0366', // SET1[0..4] reused to reach 128
+];
+
+const SET1_MAP = new Map(SET1.map((c, i) => [c, i]));
+const SET2_MAP = new Map(SET2.map((c, i) => [c, i]));
+
+const combEncode = bytes => {
+  const payload = new Uint8Array(3 + bytes.length);
+  payload[0] = (bytes.length >> 16) & 0xFF;
+  payload[1] = (bytes.length >>  8) & 0xFF;
+  payload[2] =  bytes.length        & 0xFF;
+  payload.set(bytes, 3);
+
+  let out = '', buf = 0, bits = 0;
+  for (const byte of payload) {
+    buf = (buf << 8) | byte;
+    bits += 8;
+    while (bits >= 10) {
+      bits -= 10;
+      const v = (buf >> bits) & 0x3FF;
+      out += SET1[v >> 7] + SET2[v & 0x7F];
     }
   }
-
-  const byteLength = (raw[0] << 16) | (raw[1] << 8) | raw[2];
-  return new Uint8Array(raw.slice(3, 3 + byteLength));
+  if (bits > 0) {
+    const v = (buf << (10 - bits)) & 0x3FF;
+    out += SET1[v >> 7] + SET2[v & 0x7F];
+  }
+  return out;
 };
+
+const combDecode = str => {
+  let buf = 0, bits = 0;
+  const raw = [];
+  const chars = [...str];
+  for (let i = 0; i < chars.length - 1; i++) {
+    const s1 = SET1_MAP.get(chars[i]);
+    const s2 = SET2_MAP.get(chars[i + 1]);
+    if (s1 === undefined || s2 === undefined) continue;
+    buf = (buf << 10) | (s1 << 7) | s2;
+    bits += 10;
+    while (bits >= 8) { bits -= 8; raw.push((buf >> bits) & 0xFF); }
+    i++; // consume both chars
+  }
+  if (raw.length < 3) return new Uint8Array(0);
+  const len = (raw[0] << 16) | (raw[1] << 8) | raw[2];
+  return new Uint8Array(raw.slice(3, 3 + len));
+};
+
+// compression
 
 const streamThrough = (bytes, Transform) =>
   new Response(new Blob([bytes]).stream().pipeThrough(new Transform('gzip')))
     .arrayBuffer().then(buf => new Uint8Array(buf));
 
-const compress   = bytes => streamThrough(bytes, CompressionStream);
+const compress = bytes => streamThrough(bytes, CompressionStream);
 const decompress = bytes => streamThrough(bytes, DecompressionStream);
 
-// helpers
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 const utf8 = new TextEncoder();
 const dec = new TextDecoder();
-const SEP = '👁';
+const SEP_INVIS = '\u2060';
+const SEP_CHAT = '📋';
 const MAX_TITLE = 32;
 
 const baseUrl = () => location.href.split('#')[0];
 
 function defaultTitle() {
-  const n   = new Date();
+  const n = new Date();
   const pad = x => String(x).padStart(2, '0');
   return `paste-${pad(n.getDate())}-${pad(n.getMonth()+1)}-${String(n.getFullYear()).slice(2)}-${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`;
 }
 
-async function buildLink(text, title) {
+async function buildLink(text, title, chatFriendly) {
   const compressed = await compress(utf8.encode(text));
-  const fragment = SEP + encode(compressed) + SEP + '>' + title;
-  return `${baseUrl()}#${fragment}`;
+  const [encode, sep] = chatFriendly
+    ? [combEncode, SEP_CHAT]
+    : [tagEncode,  SEP_INVIS];
+  return `${baseUrl()}#${encode(compressed)}${sep}${title}`;
 }
 
 async function readFragment(raw) {
-  const first = raw.indexOf(SEP);
-  const last  = raw.lastIndexOf(SEP);
-  const title = last > first ? raw.slice(last + SEP.length).replace(/^>/, '') : '';
-  const bytes = decode(raw);
-  if (bytes.length === 0)
-    return { error: 'not-found' };
+  const chatFriendly = [...raw].some(c => SET1_MAP.has(c));
+  const sep          = chatFriendly ? SEP_CHAT : SEP_INVIS;
+  const sepIdx       = chatFriendly ? raw.indexOf(sep) : raw.lastIndexOf(sep);
+  const title        = sepIdx >= 0 ? raw.slice(sepIdx + sep.length) : '';
+  const bytes        = chatFriendly ? combDecode(raw) : tagDecode(raw);
+
+  if (bytes.length === 0) return { error: 'not-found' };
   try {
-    const text = dec.decode(await decompress(bytes));
-    return { text, title };
+    return { text: dec.decode(await decompress(bytes)), title };
   } catch {
     return { error: 'corrupt' };
   }
@@ -297,6 +350,8 @@ async function readFragment(raw) {
 // editor mode
 
 function renderEditor() {
+  const chatFriendly = localStorage.getItem('chatFriendly') === 'true';
+
   document.getElementById('app').innerHTML = `
     <div class="topbar">
       <div class="title-wrap">
@@ -316,6 +371,10 @@ function renderEditor() {
             <input id="share-link" type="text" readonly>
             <button class="copy-btn" id="btn-copy">⧉ Copy</button>
           </div>
+          <label class="chat-toggle">
+            <input type="checkbox" id="chat-toggle" ${chatFriendly ? 'checked' : ''}>
+            chat-friendly link
+          </label>
         </div>
       </div>
     </div>
@@ -327,6 +386,10 @@ function renderEditor() {
   const shareLink  = document.getElementById('share-link');
   const publishBtn = document.getElementById('btn-publish');
   const copyBtn    = document.getElementById('btn-copy');
+  const chatToggle = document.getElementById('chat-toggle');
+
+  let currentText  = '';
+  let currentTitle = '';
 
   titleEl.addEventListener('focus', () => titleEl.select());
 
@@ -335,21 +398,32 @@ function renderEditor() {
     publishBtn.disabled = !editor.value.trim();
   });
 
+  const updateLink = async () => {
+    const link = await buildLink(currentText, currentTitle, chatToggle.checked);
+    shareLink.value = link;
+  };
+
   publishBtn.addEventListener('click', async () => {
-    const text  = editor.value.trim();
+    const text = editor.value.trim();
     if (!text) return;
-    const title = titleEl.value.trim().slice(0, MAX_TITLE) || defaultTitle();
-    const link  = await buildLink(text, title);
+    currentText  = text;
+    currentTitle = titleEl.value.trim().slice(0, MAX_TITLE) || defaultTitle();
 
     editor.setAttribute('readonly', '');
     titleEl.setAttribute('readonly', '');
     document.getElementById('pencil-icon').style.display = 'none';
-    shareLink.value = link;
+
+    await updateLink();
     overlay.classList.add('visible');
 
-    publishBtn.disabled = false;
+    publishBtn.disabled    = false;
     publishBtn.textContent = 'New Paste';
-    publishBtn.onclick = () => location.href = baseUrl();
+    publishBtn.onclick     = () => location.href = baseUrl();
+  });
+
+  chatToggle.addEventListener('change', () => {
+    localStorage.setItem('chatFriendly', chatToggle.checked);
+    if (currentText) updateLink();
   });
 
   shareLink.addEventListener('click', function () {
