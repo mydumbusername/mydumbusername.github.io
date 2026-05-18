@@ -308,7 +308,7 @@ const streamThrough = (bytes, Transform) =>
 const compress = bytes => streamThrough(bytes, CompressionStream);
 const decompress = bytes => streamThrough(bytes, DecompressionStream);
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// helpers
 
 const utf8 = new TextEncoder();
 const dec = new TextDecoder();
