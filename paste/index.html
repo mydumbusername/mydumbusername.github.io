@@ -143,6 +143,13 @@
 
   .share-label { font-size: 13px; color: var(--muted); }
 
+  .link-warning {
+    font-size: 12px;
+    color: #b45309;
+    display: none;
+  }
+  .link-warning.visible { display: block; }
+
   .share-link-row { display: flex; gap: 0.6rem; align-items: stretch; }
 
   #share-link {
@@ -180,7 +187,7 @@
   }
   button.copy-btn:hover { color: var(--text); border-color: #c8c5bd; }
 
-  .chat-toggle {
+  .encoding-toggle {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -189,7 +196,7 @@
     cursor: pointer;
     user-select: none;
   }
-  .chat-toggle input[type=checkbox] {
+  .encoding-toggle input[type=checkbox] {
     width: 13px;
     height: 13px;
     cursor: pointer;
@@ -202,12 +209,13 @@
 <div class="page" id="app"></div>
 
 <script>
-// codec 1: tag block (invisible)
-// Fragment: #<tag chars>⁠Title (U+E0000–U+E0FFF, 12 bits/symbol, 3 bytes per 2 symbols)
+// invisible encoding (tag block)
+// Uses U+E0000-U+E0FFF. 12 bits per symbol, 3 bytes per 2 symbols.
+// Fragment format: #<tag block chars><word joiner>Title
 
 const TAG = 0xE0000;
 
-const tagEncode = bytes => {
+const invisibleEncode = bytes => {
   const payload = new Uint8Array(3 + bytes.length);
   payload[0] = (bytes.length >> 16) & 0xFF;
   payload[1] = (bytes.length >>  8) & 0xFF;
@@ -224,7 +232,7 @@ const tagEncode = bytes => {
   return out;
 };
 
-const tagDecode = str => {
+const invisibleDecode = str => {
   const syms = [...str]
     .map(c => c.codePointAt(0))
     .filter(cp => cp >= TAG && cp <= TAG + 0xFFF)
@@ -241,60 +249,45 @@ const tagDecode = str => {
   return new Uint8Array(raw.slice(3, 3 + len));
 };
 
-// codec 2: combining chars (chat-friendly)
-// Fragment: #<encoded chars>📋Title
-// SET1 (8 chars, 3 bits) - base chars, each starts a new grapheme cluster
-// SET2 (128 chars, 7 bits) - combining marks, stack onto preceding SET1 char
-// 10 bits per SET1+SET2 pair, streamed from the byte sequence
+// visible encoding (combining chars)
+// SET1: 4 Cyrillic enclosing marks (class 0), act as base chars, 2 bits each.
+// SET2: 64 combining diacritics (class > 0), stack onto SET1, 6 bits each.
+// Each SET1+SET2 pair encodes exactly 1 byte.
+// Fragment format: #<SET1+SET2 pairs><clipboard emoji>Title
 
-const SET1 = ['\u0485','\u0486','\u0364','\u0365','\u0366','\u0367','\uFE26','\uA672'];
-const SET2 = [
-  ...Array.from({length: 112}, (_, i) => String.fromCodePoint(0x0300 + i)), // U+0300–U+036F
-  '\u093C','\u094D','\u0951','\u0952','\u0953','\u0954','\u0955','\u0956','\u0957','\u0962','\u0963',
-  '\u0485','\u0486','\u0364','\u0365','\u0366', // SET1[0..4] reused to reach 128
-];
+const SET1 = ['\uA672','\uA671','\u0489','\uA670'];
+const SET2 = Array.from({length: 64}, (_, i) => String.fromCodePoint(0x0300 + i));
 
 const SET1_MAP = new Map(SET1.map((c, i) => [c, i]));
 const SET2_MAP = new Map(SET2.map((c, i) => [c, i]));
 
-const combEncode = bytes => {
+const visibleEncode = bytes => {
   const payload = new Uint8Array(3 + bytes.length);
   payload[0] = (bytes.length >> 16) & 0xFF;
   payload[1] = (bytes.length >>  8) & 0xFF;
   payload[2] =  bytes.length        & 0xFF;
   payload.set(bytes, 3);
 
-  let out = '', buf = 0, bits = 0;
+  let out = '';
   for (const byte of payload) {
-    buf = (buf << 8) | byte;
-    bits += 8;
-    while (bits >= 10) {
-      bits -= 10;
-      const v = (buf >> bits) & 0x3FF;
-      out += SET1[v >> 7] + SET2[v & 0x7F];
-    }
-  }
-  if (bits > 0) {
-    const v = (buf << (10 - bits)) & 0x3FF;
-    out += SET1[v >> 7] + SET2[v & 0x7F];
+    out += SET1[byte >> 6] + SET2[byte & 0x3F];
   }
   return out;
 };
 
-const combDecode = str => {
-  let buf = 0, bits = 0;
-  const raw = [];
+const visibleDecode = str => {
   const chars = [...str];
-  for (let i = 0; i < chars.length - 1; i++) {
+  const raw = [];
+  for (let i = 0; i + 1 < chars.length; i += 2) {
     const s1 = SET1_MAP.get(chars[i]);
     const s2 = SET2_MAP.get(chars[i + 1]);
-    if (s1 === undefined || s2 === undefined) continue;
-    buf = (buf << 10) | (s1 << 7) | s2;
-    bits += 10;
-    while (bits >= 8) { bits -= 8; raw.push((buf >> bits) & 0xFF); }
-    i++; // consume both chars
+    if (s1 !== undefined && s2 !== undefined)
+      raw.push((s1 << 6) | s2);
+    else
+      i--; // non-pair char, retry next position
   }
-  if (raw.length < 3) return new Uint8Array(0);
+  if (raw.length < 3)
+    return new Uint8Array(0);
   const len = (raw[0] << 16) | (raw[1] << 8) | raw[2];
   return new Uint8Array(raw.slice(3, 3 + len));
 };
@@ -305,7 +298,7 @@ const streamThrough = (bytes, Transform) =>
   new Response(new Blob([bytes]).stream().pipeThrough(new Transform('gzip')))
     .arrayBuffer().then(buf => new Uint8Array(buf));
 
-const compress = bytes => streamThrough(bytes, CompressionStream);
+const compress   = bytes => streamThrough(bytes, CompressionStream);
 const decompress = bytes => streamThrough(bytes, DecompressionStream);
 
 // helpers
@@ -313,33 +306,35 @@ const decompress = bytes => streamThrough(bytes, DecompressionStream);
 const utf8 = new TextEncoder();
 const dec = new TextDecoder();
 const SEP_INVIS = '\u2060';
-const SEP_CHAT = '📋';
+const SEP_VISIBLE = '➤';
 const MAX_TITLE = 32;
+const WARN_LENGTH = 2000;
 
 const baseUrl = () => location.href.split('#')[0];
 
 function defaultTitle() {
-  const n = new Date();
+  const n   = new Date();
   const pad = x => String(x).padStart(2, '0');
   return `paste-${pad(n.getDate())}-${pad(n.getMonth()+1)}-${String(n.getFullYear()).slice(2)}-${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`;
 }
 
-async function buildLink(text, title, chatFriendly) {
+async function buildLink(text, title, visible) {
   const compressed = await compress(utf8.encode(text));
-  const [encode, sep] = chatFriendly
-    ? [combEncode, SEP_CHAT]
-    : [tagEncode,  SEP_INVIS];
+  const [encode, sep] = visible
+    ? [visibleEncode, SEP_VISIBLE]
+    : [invisibleEncode, SEP_INVIS];
   return `${baseUrl()}#${encode(compressed)}${sep}${title}`;
 }
 
 async function readFragment(raw) {
-  const chatFriendly = [...raw].some(c => SET1_MAP.has(c));
-  const sep          = chatFriendly ? SEP_CHAT : SEP_INVIS;
-  const sepIdx       = chatFriendly ? raw.indexOf(sep) : raw.lastIndexOf(sep);
-  const title        = sepIdx >= 0 ? raw.slice(sepIdx + sep.length) : '';
-  const bytes        = chatFriendly ? combDecode(raw) : tagDecode(raw);
+  const isVisible = [...raw].some(c => SET1_MAP.has(c));
+  const sep       = isVisible ? SEP_VISIBLE : SEP_INVIS;
+  const sepIdx    = isVisible ? raw.indexOf(sep) : raw.lastIndexOf(sep);
+  const title     = sepIdx >= 0 ? raw.slice(sepIdx + sep.length) : '';
+  const bytes     = isVisible ? visibleDecode(raw) : invisibleDecode(raw);
 
-  if (bytes.length === 0) return { error: 'not-found' };
+  if (bytes.length === 0)
+    return { error: 'not-found' };
   try {
     return { text: dec.decode(await decompress(bytes)), title };
   } catch {
@@ -350,7 +345,7 @@ async function readFragment(raw) {
 // editor mode
 
 function renderEditor() {
-  const chatFriendly = localStorage.getItem('chatFriendly') === 'true';
+  const useVisible = localStorage.getItem('useVisible') === 'true';
 
   document.getElementById('app').innerHTML = `
     <div class="topbar">
@@ -367,26 +362,28 @@ function renderEditor() {
       <div class="overlay" id="overlay">
         <div class="share-box">
           <div class="share-label">your paste link</div>
+          <div class="link-warning" id="link-warning">⚠ link is more than 2000 characters long</div>
           <div class="share-link-row">
             <input id="share-link" type="text" readonly>
             <button class="copy-btn" id="btn-copy">⧉ Copy</button>
           </div>
-          <label class="chat-toggle">
-            <input type="checkbox" id="chat-toggle" ${chatFriendly ? 'checked' : ''}>
-            chat-friendly link
+          <label class="encoding-toggle">
+            <input type="checkbox" id="encoding-toggle" ${useVisible ? 'checked' : ''}>
+            use visible encoding
           </label>
         </div>
       </div>
     </div>
   `;
 
-  const titleEl    = document.getElementById('title-input');
-  const editor     = document.getElementById('editor');
-  const overlay    = document.getElementById('overlay');
-  const shareLink  = document.getElementById('share-link');
-  const publishBtn = document.getElementById('btn-publish');
-  const copyBtn    = document.getElementById('btn-copy');
-  const chatToggle = document.getElementById('chat-toggle');
+  const titleEl        = document.getElementById('title-input');
+  const editor         = document.getElementById('editor');
+  const overlay        = document.getElementById('overlay');
+  const shareLink      = document.getElementById('share-link');
+  const publishBtn     = document.getElementById('btn-publish');
+  const copyBtn        = document.getElementById('btn-copy');
+  const encodingToggle = document.getElementById('encoding-toggle');
+  const linkWarning    = document.getElementById('link-warning');
 
   let currentText  = '';
   let currentTitle = '';
@@ -399,8 +396,9 @@ function renderEditor() {
   });
 
   const updateLink = async () => {
-    const link = await buildLink(currentText, currentTitle, chatToggle.checked);
+    const link = await buildLink(currentText, currentTitle, encodingToggle.checked);
     shareLink.value = link;
+    linkWarning.classList.toggle('visible', link.length > WARN_LENGTH);
   };
 
   publishBtn.addEventListener('click', async () => {
@@ -421,8 +419,8 @@ function renderEditor() {
     publishBtn.onclick     = () => location.href = baseUrl();
   });
 
-  chatToggle.addEventListener('change', () => {
-    localStorage.setItem('chatFriendly', chatToggle.checked);
+  encodingToggle.addEventListener('change', () => {
+    localStorage.setItem('useVisible', encodingToggle.checked);
     if (currentText) updateLink();
   });
 
@@ -462,18 +460,12 @@ async function renderViewer(raw) {
   const result = await readFragment(raw);
   const editor = document.getElementById('editor');
 
-  if (result.error === 'not-found') {
-    editor.value = 'Not found.';
-    return;
-  }
-  if (result.error === 'corrupt') {
-    editor.value = 'This paste appears to be incomplete or corrupted.\nThe link may have been truncated.';
-    return;
-  }
+  if (result.error === 'not-found') { editor.value = 'Not found.'; return; }
+  if (result.error === 'corrupt') { editor.value = 'This paste appears to be incomplete or corrupted.\nThe link may have been truncated.'; return; }
 
   document.getElementById('view-title').textContent = result.title || 'untitled';
   document.title = result.title || 'paste';
-  editor.value   = result.text;
+  editor.value = result.text;
 }
 
 // router
