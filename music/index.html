@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyDumbMusic</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23080a10'/><ellipse cx='7' cy='25' rx='3.2' ry='2.2' fill='%2300c8e6' transform='rotate(-15 7 25)'/><ellipse cx='15.5' cy='25' rx='3.2' ry='2.2' fill='%2300c8e6' transform='rotate(-15 15.5 25)'/><ellipse cx='24' cy='25' rx='3.2' ry='2.2' fill='%2300c8e6' transform='rotate(-15 24 25)'/><line x1='9.8' y1='24.2' x2='9.8' y2='8' stroke='%2300c8e6' stroke-width='1.8' stroke-linecap='round'/><line x1='18.3' y1='24.2' x2='18.3' y2='16' stroke='%2300c8e6' stroke-width='1.8' stroke-linecap='round'/><line x1='26.8' y1='24.2' x2='26.8' y2='8' stroke='%2300c8e6' stroke-width='1.8' stroke-linecap='round'/><polyline points='9.8,8 18.3,16 26.8,8' fill='none' stroke='%2300c8e6' stroke-width='2.2' stroke-linejoin='round' stroke-linecap='round'/></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;outline:none;}
+:root{
+  --bg:#07080d; --panel:#0b0d15; --panel2:#0d1018;
+  --border:#18202e; --border2:#101520;
+  --grid-bg:#08090e; --grid-line:#111620; --grid-bar:#1a2030;
+  --sel-bg:rgba(0,190,220,0.82);
+  --cur-compose-bg:rgba(0,180,220,0.06); --cur-compose-border:#00c8e8;
+  --cur-play-bg:rgba(0,255,160,0.07);   --cur-play-border:#00ffaa;
+  --wk:#bcc5d5; --bk:#131720;
+  --accent:#00c8e8; --accent2:#00ffaa;
+  --text:#8a9ab5; --text2:#3a4a60; --text3:#5a7090;
+  --compose-c:#00c8e8; --play-c:#00ffaa;
+  --row-h:20px; --key-w:72px; --col-w:52px; --rec-w:350px;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Share Tech Mono',monospace;overflow:hidden;user-select:none;}
+body{display:flex;flex-direction:column;}
+
+/* -- HEADER -- */
+#header{
+  height:52px;background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:12px;
+  position:relative;z-index:20;flex-shrink:0;flex-wrap:nowrap;overflow:hidden;
+}
+.logo{opacity:0.7;perspective:50px;color:var(--accent);transform-style:preserve-3d;
+  font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;line-height:0.8;
+  letter-spacing:.2em;flex:0 0 auto;display:flex;flex-flow:column;align-items:center;}
+.logo-1{font-size:10px;font-weight:700;text-shadow:1px 1px 1px #bbb;}
+.logo-2{transform: rotateX(20deg);font-size:20px;font-weight:900;
+  text-shadow:0 0 18px var(--accent);letter-spacing:.05em;
+  line-height:1;position:relative;top:1px;}
+.h-sep{width:1px;height:28px;background:var(--border);flex-shrink:0;}
+.hint-block{display:flex;align-items:center;gap:15px;white-space:nowrap;
+  font-size:10px;color:var(--text3);letter-spacing:.08em;}
+.hint-item{display:flex;align-items:center;gap:6px;}
+.kbadge{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:3px 8px;min-width:24px;
+  background:linear-gradient(to bottom,#141824,#0c1018);
+  border:1px solid #2a3548;border-bottom:2px solid #1a2030;border-radius:3px;
+  color:var(--text);font-size:11px;font-family:'Share Tech Mono',monospace;
+  white-space:nowrap;letter-spacing:.02em;
+  box-shadow:0 1px 0 rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);
+}
+.hint-txt{color:var(--text2);font-size:9px;white-space:nowrap;letter-spacing:.04em;}
+.hint-sep{color:var(--text2);opacity:.25;font-size:14px;padding:0 4px;}
+.arrow-cluster{display:inline-flex;flex-direction:column;align-items:center;gap:1px;vertical-align:middle;}
+.arrow-row{display:flex;gap:1px;}
+.arrow-key{min-width:11px;padding:1px 2px;font-size:7px;line-height:1.1;border-bottom-width:1px;}
+.oct-ctrl{display:flex;align-items:center;gap:4px;font-size:10px;}
+.oct-lbl{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:.12em;color:var(--text3);}
+.oct-btn{width:20px;height:20px;background:#0a0d15;border:1px solid var(--border);
+  border-radius:2px;cursor:pointer;color:var(--text);font-size:12px;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.oct-btn:hover{border-color:var(--accent);color:var(--accent);}
+.oct-val{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;
+  color:var(--accent);width:18px;text-align:center;}
+.btn-clear{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:.15em;padding:6px 14px;background:transparent;
+  border:1px solid #252f40;color:var(--text);border-radius:2px;cursor:pointer;transition:all .18s;
+  white-space:nowrap;flex-shrink:0;}
+.btn-clear:hover{border-color:#ff4455;color:#ff4455;background:rgba(255,60,70,.07);}
+
+/* -- SOUND PANEL -- */
+#soundPanel{
+  height:80px;background:var(--panel);border-bottom:2px solid var(--border2);
+  display:flex;align-items:center;padding:0 14px;gap:20px;flex-shrink:0;
+}
+.sp-label{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:.2em;color:var(--text);writing-mode:vertical-rl;
+  transform:rotate(180deg);flex-shrink:0;}
+.sp-div{width:1px;height:52px;background:var(--border);flex-shrink:0;}
+.wave-sel{display:flex;gap:5px;align-items:center;}
+.wave-btn{width:56px;height:54px;background:#08090f;border:1px solid #18202e;
+  border-radius:3px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:5px;transition:all .15s;}
+.wave-btn:hover{border-color:#252f44;background:#0b0e18;}
+.wave-btn.active{border-color:var(--accent);background:rgba(0,200,230,.07);
+  box-shadow:0 0 14px rgba(0,200,230,.12),inset 0 0 8px rgba(0,200,230,.04);}
+.wave-btn svg{width:38px;height:18px;color:var(--text3);transition:color .15s;}
+.wave-btn.active svg{color:var(--accent);filter:drop-shadow(0 0 4px rgba(0,200,230,.6));}
+.wave-btn .wlabel{font-family:'Orbitron',monospace;font-size:8px;font-weight:700;
+  letter-spacing:.12em;color:var(--text3);}
+.wave-btn.active .wlabel{color:var(--accent);}
+.sliders-row{display:flex;gap:14px;align-items:flex-start;}
+.sl-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px;}
+.sl-label{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:.16em;color:var(--text3);}
+.sl-val{font-size:9px;color:var(--text);font-weight:700;
+  font-variant-numeric:tabular-nums;letter-spacing:.03em;}
+
+/* -- KNOB -- */
+.knob{position:relative;width:44px;height:44px;cursor:pointer;}
+.knob-track{width:100%;height:100%;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#18202e,#090c12);
+  border:1px solid var(--border2);
+  box-shadow:inset 0 0 8px rgba(0,0,0,.85),0 1px 1px rgba(255,255,255,.02);
+  position:relative;}
+.knob-indicator{position:absolute;top:50%;left:50%;width:2px;height:44%;
+  background:var(--accent);transform-origin:50% 100%;
+  transform:translate(-50%,-100%) rotate(0deg);border-radius:1px;
+  box-shadow:0 0 5px rgba(0,200,230,.55);}
+.knob-ring{position:absolute;inset:-3px;pointer-events:none;}
+
+/* -- METRONOME -- */
+#metronome{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#metro-inner{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:6px;width:88px;flex-shrink:0;height:100%;}
+.metro-label{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:.16em;color:var(--text3);}
+.metro-controls{display:flex;align-items:center;justify-content:center;
+  gap:4px;width:100%;padding-left:14px;}
+.metro-bpm-wrap{display:flex;flex-direction:column;align-items:center;
+  gap:1px;width:42px;flex-shrink:0;}
+.metro-bpm{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
+  color:var(--text);letter-spacing:.04em;font-variant-numeric:tabular-nums;
+  cursor:ns-resize;user-select:none;display:block;width:100%;text-align:center;}
+.metro-bpm-lbl{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  letter-spacing:.12em;color:var(--text3);display:block;width:100%;text-align:center;}
+.metro-btn{width:32px;height:32px;border-radius:3px;border:1px solid var(--border);
+  background:#08090f;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:11px;color:var(--text3);
+  transition:all .15s;flex-shrink:0;line-height:1;letter-spacing:0;padding:0;}
+.metro-btn:hover{border-color:var(--play-c);color:var(--play-c);}
+.metro-btn.active{border-color:var(--play-c);color:var(--play-c);
+  background:rgba(0,255,160,.06);box-shadow:0 0 12px rgba(0,255,160,.15);}
+.metro-pip{width:10px;height:10px;border-radius:50%;background:var(--text2);
+  border:1px solid var(--border);transition:background .04s,box-shadow .04s;flex-shrink:0;}
+.metro-pip.beat{background:var(--play-c);box-shadow:0 0 10px rgba(0,255,160,.8);}
+
+/* -- PIANO ROLL -- */
+#pianoRoll{display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;}
+.pr-hdr{display:flex;flex-shrink:0;height:22px;background:var(--panel2);
+  border-bottom:1px solid var(--border);position:relative;z-index:2;}
+.pr-hdr-spacer{width:var(--key-w);flex-shrink:0;border-right:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;}
+.pr-hdr-spacer-txt{font-size:9px;color:var(--text3);letter-spacing:.08em;}
+.col-hdrs-wrap{flex:1;overflow:hidden;position:relative;display:flex;}
+.col-hdrs-inner{display:flex;height:100%;}
+.col-hdr{width:var(--col-w);flex-shrink:0;height:22px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--text3);border-right:1px solid var(--grid-line);
+  transition:background .15s,color .15s;position:relative;
+  font-family:'Orbitron',sans-serif;font-weight:700;letter-spacing:.05em;}
+.col-hdr.hdr-compose{color:var(--compose-c);background:rgba(0,200,230,.07);}
+.col-hdr.hdr-play{color:var(--play-c);background:rgba(0,255,160,.07);}
+.col-hdr-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--text2);opacity:.4;}
+.col-hdr.hdr-compose .col-hdr-dot{background:var(--compose-c);opacity:.9;
+  box-shadow:0 0 5px var(--compose-c);}
+.col-hdr.hdr-play .col-hdr-dot{background:var(--play-c);opacity:.9;
+  box-shadow:0 0 5px var(--play-c);}
+.pr-body{display:flex;flex:1;overflow:hidden;min-height:0;}
+
+/* -- PIANO KEYS -- */
+.piano-keys-wrap{width:var(--key-w);flex-shrink:0;overflow-y:scroll;
+  overflow-x:hidden;scrollbar-width:none;position:relative;
+  background:var(--bg);border-right:3px solid #08090e;}
+.piano-keys-wrap::-webkit-scrollbar{display:none;}
+.pkey{height:var(--row-h);display:flex;align-items:center;
+  cursor:pointer;transition:background .06s,box-shadow .06s;position:relative;}
+.pkey.white{
+  background:linear-gradient(to right,#bfc8d4 0%,#d6dce6 20%,#eaedf3 50%,#f5f6f9 78%,#fafbfd 100%);
+  border-bottom:1px solid #a8b0be;box-shadow:inset -4px 0 6px rgba(0,0,0,.10);padding-left:5px;}
+.pkey.white::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:rgba(255,255,255,.8);pointer-events:none;}
+.pkey.white:hover{background:linear-gradient(to right,#cad2dc 0%,#dde3ec 20%,#edf0f6 50%,#f7f8fb 78%,#fbfcfe 100%);}
+.pkey.black{width:100%;padding-left:5px;z-index:2;overflow:visible;
+  background:
+    linear-gradient(to right,#181c26 0%,#22273a 30%,#272d3e 55%,#1e2230 80%,#141720 100%) left/66% 100% no-repeat,
+    linear-gradient(to right,#d0d8e2,#e8ecf2) right/34% 100% no-repeat;
+  border-bottom:1px solid #a8b0be;}
+.pkey.black::before{content:'';position:absolute;top:0;left:0;width:66%;height:100%;
+  box-shadow:inset -1px 0 4px rgba(0,0,0,.55),inset 0 -4px 6px rgba(0,0,0,.5);
+  border-top:1px solid #2e3344;pointer-events:none;z-index:3;}
+.pkey.black::after{content:'';position:absolute;top:1px;left:0;width:66%;height:2px;
+  background:linear-gradient(to bottom,rgba(110,130,170,.28),transparent);
+  pointer-events:none;z-index:4;}
+.pkey.black:hover{background:
+    linear-gradient(to right,#202538 0%,#2a3048 30%,#303650 55%,#262c40 80%,#1c2030 100%) left/66% 100% no-repeat,
+    linear-gradient(to right,#d0d8e2,#e8ecf2) right/34% 100% no-repeat;}
+.pkey.c-note{border-top:2px solid #8899aa;}
+.pkey.white.preview{
+  background:linear-gradient(to right,rgba(0,100,155,.72) 0%,rgba(0,128,178,.62) 40%,rgba(0,155,200,.52) 100%) !important;
+  box-shadow:inset 0 0 10px rgba(0,150,205,.28),inset -4px 0 6px rgba(0,0,0,.12) !important;
+  border-color:rgba(0,120,175,.4) !important;}
+.pkey.black.preview{
+  background:
+    linear-gradient(to right,rgba(0,65,115,.96) 0%,rgba(0,90,148,.92) 40%,rgba(0,115,168,.86) 100%) left/66% 100% no-repeat,
+    linear-gradient(to right,#d0d8e2,#e8ecf2) right/34% 100% no-repeat !important;
+  box-shadow:inset 0 0 12px rgba(0,150,210,.32) !important;
+  border-color:rgba(0,95,150,.5) !important;}
+.pkey-name{position:absolute;left:5px;top:50%;transform:translateY(-50%);
+  font-size:7px;font-weight:700;letter-spacing:.02em;pointer-events:none;line-height:1;}
+.pkey.white .pkey-name{color:#38485a;text-shadow:0 1px 0 rgba(255,255,255,.9);}
+.pkey.black .pkey-name{color:#4e6882;}
+.pkey.preview .pkey-name{color:rgba(255,255,255,.92) !important;text-shadow:0 0 5px rgba(0,160,210,.5);}
+.pkey-kb{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  font-size:7px;font-weight:600;letter-spacing:.03em;pointer-events:none;line-height:1;opacity:0;}
+.pkey.white .pkey-kb{color:#38485a;}
+.pkey.black .pkey-kb{color:#38485a;}
+.pkey-kb:not(:empty){opacity:.45;}
+.pkey.white.preview .pkey-kb{opacity:.55;color:rgba(255,255,255,.75);}
+.pkey.black.preview .pkey-kb{opacity:.45;color:#38485a;}
+
+/* -- GRID -- */
+.grid-scroll{flex:1;overflow:auto;position:relative;}
+.grid-scroll::-webkit-scrollbar{width:5px;height:5px;}
+.grid-scroll::-webkit-scrollbar-track{background:var(--panel);}
+.grid-scroll::-webkit-scrollbar-thumb{background:#1a2535;border-radius:3px;}
+.grid-scroll::-webkit-scrollbar-thumb:hover{background:#253045;}
+.grid-inner{position:relative;display:inline-flex;flex-direction:column;min-width:100%;overflow:hidden;}
+.grid-row{display:flex;height:var(--row-h);}
+.grid-row.white-r{background:var(--grid-bg);}
+.grid-row.black-r{background:#060710;}
+.grid-row.c-r{border-top:1px solid var(--grid-bar);}
+.grid-row:hover{background:rgba(255,255,255,.012) !important;}
+.grid-cell{width:var(--col-w);height:var(--row-h);flex-shrink:0;
+  border-right:1px solid var(--grid-line);cursor:pointer;position:relative;transition:background .07s;}
+.grid-cell:hover{background:rgba(255,255,255,.04);}
+.grid-cell.sel{background:var(--sel-bg);box-shadow:inset 0 0 0 1px rgba(0,220,255,.45);}
+.grid-cell.sel::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(140deg,rgba(255,255,255,.18) 0%,transparent 55%);pointer-events:none;}
+.col-overlay{position:absolute;top:1px;bottom:0;pointer-events:none;z-index:3;}
+.col-overlay.ov-compose{border:1.5px solid var(--cur-compose-border);
+  background:var(--cur-compose-bg);
+  box-shadow:inset 0 0 18px rgba(0,200,230,.04),0 0 12px rgba(0,200,230,.08);
+  animation:pulse-c 2s ease-in-out infinite;}
+.col-overlay.ov-play{border:1.5px solid var(--cur-play-border);
+  background:var(--cur-play-bg);
+  box-shadow:inset 0 0 20px rgba(0,255,160,.06),0 0 18px rgba(0,255,160,.12);
+  animation:flash-p .3s ease-out;}
+.col-overlay.ov-play.held{box-shadow:inset 0 0 30px rgba(0,255,160,.12),0 0 28px rgba(0,255,160,.22);
+  background:rgba(0,255,160,.1);border-color:rgba(0,255,160,1);}
+@keyframes pulse-c{0%,100%{opacity:1;}50%{opacity:.65;}}
+@keyframes flash-p{0%{opacity:.3;box-shadow:inset 0 0 40px rgba(0,255,160,.3),0 0 40px rgba(0,255,160,.5);}100%{opacity:1;}}
+
+/* -- STATUS BAR -- */
+#statusBar{height:26px;background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 12px;gap:18px;
+  font-size:9px;color:var(--text3);letter-spacing:.08em;flex-shrink:0;}
+.sb-item{display:flex;align-items:center;gap:6px;}
+.sb-dot{width:5px;height:5px;border-radius:50%;background:var(--text3);}
+.sb-dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+.sb-dot.play-on{background:var(--play-c);box-shadow:0 0 6px var(--play-c);}
+
+/* rec-mode: disable grid editing */
+body.rec-mode .grid-cell{cursor:default;pointer-events:none;}
+body.rec-mode .col-hdr{pointer-events:auto;cursor:pointer;}
+
+/* -- RECORDING OVERLAY -- */
+body.rec-open #pianoRoll{padding-right:var(--rec-w);}
+#recOverlay{position:fixed;right:0;top:0;bottom:0;width:var(--rec-w);
+  display:flex;flex-direction:column;z-index:24;}
+.rec-row{flex-shrink:0;border-left:1px solid var(--border);width:100%;box-sizing:border-box;}
+.rec-row-header{height:52px;background:var(--panel);border-bottom:1px solid var(--border);overflow:hidden;}
+#spectrumCanvas{width:100%;height:100%;display:block;}
+.rec-row-sound{height:80px;background:var(--panel);border-bottom:2px solid var(--border2);
+  display:flex;align-items:center;}
+.rec-sound-inner{display:flex;align-items:center;padding:0 14px;gap:16px;width:100%;height:100%;}
+.rec-btn-section{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+.rec-wave-btn{display:flex;flex-direction:row;align-items:center;justify-content:center;
+  gap:8px;padding:0 14px;flex:1;height:60px;
+  background:rgba(255,30,50,.08);border:1px solid #552030;border-radius:2px;
+  cursor:pointer;transition:all .18s;color:#cc3348;}
+.rec-wave-btn svg{width:12px;height:12px;flex-shrink:0;}
+.rec-wave-btn .wlabel{font-size:10px;font-weight:700;letter-spacing:.16em;
+  font-family:'Orbitron',sans-serif;white-space:nowrap;}
+.rec-wave-btn.idle:hover{border-color:#993040;color:#ff4466;background:rgba(255,40,60,.14);}
+.rec-wave-btn.armed{border-color:#882030;color:#ff4466;background:rgba(255,40,60,.12);
+  animation:rec-pulse 1s ease-in-out infinite;}
+.rec-wave-btn.recording{border-color:#cc2030;color:#ff3348;background:rgba(255,30,50,.18);}
+.rec-wave-btn.recording svg{filter:drop-shadow(0 0 5px rgba(255,50,60,.9));}
+@keyframes rec-pulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+.rec-row-colhdr{height:22px;background:var(--panel);border-bottom:1px solid var(--grid-line);
+  display:flex;align-items:center;justify-content:center;}
+.rec-list-title{font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  letter-spacing:.22em;color:var(--text2);}
+.rec-row-grid{flex:1;min-height:0;background:var(--panel2);overflow:hidden;
+  display:flex;flex-direction:column;}
+.rec-panel-inner{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px;
+  display:flex;flex-direction:column;gap:6px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.rec-panel-inner::-webkit-scrollbar{width:3px;}
+.rec-panel-inner::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.rec-empty{font-size:9px;color:var(--text2);letter-spacing:.06em;
+  text-align:center;padding:20px 0;opacity:.5;font-style:italic;}
+.rec-item{background:#080a12;border:1px solid var(--border);border-radius:3px;
+  padding:6px;display:flex;flex-direction:column;gap:4px;flex-shrink:0;position:relative;}
+.rec-item.active-rec{border-color:#cc2030;}
+.rec-item-meta{display:flex;justify-content:space-between;align-items:center;gap:4px;}
+.rec-item-num{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  color:var(--text3);letter-spacing:.1em;flex:1;cursor:text;}
+.rec-item-num:hover{color:var(--text);}
+.rec-rename-input{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:.1em;color:var(--text);background:transparent;border:none;
+  border-bottom:1px solid var(--accent);outline:none;width:100%;
+  padding:0;flex:1;min-width:0;}
+.rec-item-dur{font-size:8px;color:var(--text2);letter-spacing:.04em;flex-shrink:0;}
+.rec-item-dur.live{color:#ff4466;}
+.rec-item-btns{display:flex;gap:3px;flex-shrink:0;}
+.rec-ibtn{width:20px;height:20px;border-radius:2px;cursor:pointer;
+  background:#0c0f1a;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--text3);transition:all .15s;flex-shrink:0;outline:none;}
+.rec-ibtn svg{width:9px;height:9px;pointer-events:none;}
+.rec-ibtn:hover{border-color:var(--text);color:var(--text);}
+.rec-ibtn.play-active{border-color:var(--play-c);color:var(--play-c);background:rgba(0,255,160,.06);}
+.rec-ibtn.del:hover{border-color:#ff4455;color:#ff4455;}
+.rec-canvas-wrap{position:relative;width:100%;height:48px;cursor:default;overflow:hidden;}
+.rec-canvas-wrap.scrubbing{cursor:crosshair;}
+.rec-canvas{width:100%;height:48px;display:block;border-radius:2px;background:#04050a;outline:none;}
+.rec-playhead{position:absolute;top:0;bottom:0;width:1px;
+  background:rgba(0,255,160,.7);pointer-events:none;display:none;}
+.rec-del-confirm{position:absolute;inset:0;border-radius:3px;
+  background:rgba(7,8,13,.88);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;z-index:10;}
+.rec-del-confirm-msg{font-size:9px;color:var(--text);letter-spacing:.06em;text-align:center;}
+.rec-del-confirm-btns{display:flex;gap:6px;}
+.rec-del-yes,.rec-del-no{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:.12em;padding:4px 12px;border-radius:2px;cursor:pointer;transition:all .15s;}
+.rec-del-yes{background:transparent;border:1px solid #ff4455;color:#ff4455;}
+.rec-del-yes:hover{background:rgba(255,60,70,.15);}
+.rec-del-no{background:transparent;border:1px solid var(--border);color:var(--text3);}
+.rec-del-no:hover{border-color:var(--text);color:var(--text);}
+
+/* -- LOADING SPINNER -- */
+#loadingSpinner{position:fixed;inset:0;z-index:200;background:rgba(7,8,13,.75);
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+#loadingSpinner.visible{display:flex;}
+.spinner-ring{width:40px;height:40px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+.spinner-label{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:.2em;color:var(--text3);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.rec-colhdr-row{display:flex;align-items:center;justify-content:space-between;
+  padding:0 10px;width:100%;}
+.midi-open-btn{width:18px;height:22px;background:none;border:none;cursor:pointer;
+  color:var(--text2);display:flex;align-items:center;justify-content:center;
+  transition:color .15s;padding:0;}
+.midi-open-btn:hover{color:var(--accent);}
+.midi-open-btn svg{width:14px;height:19px;}
+
+/* -- REC HINT -- */
+#recHint{position:fixed;inset:0;z-index:100;display:flex;align-items:center;
+  justify-content:center;pointer-events:none;opacity:0;transition:opacity .3s;}
+#recHint.visible{opacity:1;}
+.rec-hint-box{background:rgba(8,10,18,.82);backdrop-filter:blur(6px);
+  border:1px solid var(--border);border-radius:6px;padding:20px 32px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);}
+.rec-hint-msg{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.18em;color:var(--text);}
+.rec-hint-sub{font-size:9px;color:var(--text2);letter-spacing:.08em;
+  text-align:center;line-height:1.6;}
+.rec-hint-key{display:inline-flex;align-items:center;justify-content:center;
+  padding:5px 22px;background:linear-gradient(to bottom,#141824,#0c1018);
+  border:1px solid #2a3548;border-bottom:3px solid #1a2030;border-radius:4px;
+  color:var(--text);font-size:10px;font-family:'Share Tech Mono',monospace;
+  letter-spacing:.06em;
+  box-shadow:0 2px 0 rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);
+  animation:key-press 1.4s ease-in-out infinite;}
+@keyframes key-press{
+  0%,60%,100%{transform:translateY(0);border-bottom-width:3px;}
+  70%,85%{transform:translateY(2px);border-bottom-width:1px;}}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo">
+    <span class="logo-1">My Dumb</span><span class="logo-2">MUSIC</span>
+  </div>
+  <div class="h-sep"></div>
+  <button class="btn-clear" onclick="clearAll()">✕ CLEAR</button>
+  <div class="h-sep" style="height:20px;margin:0 4px;"></div>
+  <div class="hint-block">
+    <span class="hint-item">
+      <span class="arrow-cluster">
+        <span class="arrow-row"><span class="kbadge arrow-key">▲</span></span>
+        <span class="arrow-row"><span class="kbadge arrow-key">◀</span><span class="kbadge arrow-key">▼</span><span class="kbadge arrow-key">▶</span></span>
+      </span>
+      <span class="hint-txt">move</span>
+    </span>
+    <span class="hint-item">
+      <span class="kbadge">SPACE</span><span class="hint-txt" id="hintAction">next</span>
+    </span>
+    <span class="hint-item">
+      <span class="kbadge" style="letter-spacing:0;padding:3px 9px;">＋</span><span class="hint-txt">insert</span>
+    </span>
+    <span class="hint-item">
+      <span class="kbadge">DEL</span><span class="hint-txt">delete</span>
+    </span>
+    <span class="hint-item">
+      <span class="kbadge">BKSP</span><span class="hint-txt">clear</span>
+    </span>
+    <span class="hint-item">
+      <span class="kbadge">TAB</span><span class="hint-txt">mode</span>
+    </span>
+    <span class="hint-item">
+      <span class="kbadge">⌘Z</span><span class="hint-txt">undo</span>
+    </span>
+  </div>
+</div>
+
+<div id="soundPanel">
+  <span class="sp-label">WAVE</span>
+  <div class="wave-sel" id="waveSel">
+    <button class="wave-btn active" data-wave="mellow">
+      <svg viewBox="0 0 38 18" fill="none"><path d="M2 9 C5 3 10 3 19 9 C28 15 33 15 36 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="wlabel">MELLOW</span>
+    </button>
+    <button class="wave-btn" data-wave="glass">
+      <svg viewBox="0 0 38 18" fill="none">
+        <path d="M2 6 C7 1 12 1 19 6 C26 11 31 11 36 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M2 13 C7 8 12 8 19 13 C26 18 31 18 36 13" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+      </svg>
+      <span class="wlabel">GLASS</span>
+    </button>
+    <button class="wave-btn" data-wave="triangle">
+      <svg viewBox="0 0 38 18" fill="none"><path d="M2 16 L10 2 L18 16 L26 2 L34 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="wlabel">TRI</span>
+    </button>
+    <button class="wave-btn" data-wave="sawtooth">
+      <svg viewBox="0 0 38 18" fill="none"><path d="M2 16 L14 2 L14 16 L26 2 L26 16 L36 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="wlabel">SAW</span>
+    </button>
+    <button class="wave-btn" data-wave="bells">
+      <svg viewBox="0 0 38 18" fill="none"><path d="M2 15 L8 3 L10 12 L14 3 L19 15 L24 3 L28 12 L30 3 L36 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="wlabel">BELLS</span>
+    </button>
+    <button class="wave-btn" data-wave="organ">
+      <svg viewBox="0 0 38 18" fill="none"><path d="M2 9 L2 4 L8 4 L8 14 L14 14 L14 4 L20 4 L20 14 L26 14 L26 4 L32 4 L32 14 L38 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="wlabel">ORGAN</span>
+    </button>
+    <button class="wave-btn" data-wave="square">
+      <svg viewBox="0 0 38 18" fill="none"><path d="M2 16 L2 4 L18 4 L18 16 L34 16 L34 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="wlabel">SQR</span>
+    </button>
+  </div>
+  <div class="sp-div"></div>
+  <span class="sp-label">ENV</span>
+  <div class="sliders-row" id="slidersRow">
+    <div class="sl-item">
+      <span class="sl-label">ATK</span>
+      <div class="knob" data-knob="attack" data-min="0.001" data-max="1" data-val="0.02" data-curve="exp">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-attack">0.02</span>
+    </div>
+    <div class="sl-item">
+      <span class="sl-label">DCY</span>
+      <div class="knob" data-knob="decay" data-min="0.01" data-max="2" data-val="0.15" data-curve="exp">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-decay">0.15</span>
+    </div>
+    <div class="sl-item">
+      <span class="sl-label">SUS</span>
+      <div class="knob" data-knob="sustain" data-min="0" data-max="1" data-val="0.7">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-sustain">0.70</span>
+    </div>
+    <div class="sl-item">
+      <span class="sl-label">REL</span>
+      <div class="knob" data-knob="release" data-min="0.01" data-max="3" data-val="0.4" data-curve="exp">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-release">0.40</span>
+    </div>
+  </div>
+  <div class="sp-div"></div>
+  <span class="sp-label">TONE</span>
+  <div class="sliders-row">
+    <div class="sl-item">
+      <span class="sl-label">CUT</span>
+      <div class="knob" data-knob="cutoff" data-min="80" data-max="18000" data-val="8000" data-curve="exp">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-cutoff">8000</span>
+    </div>
+    <div class="sl-item">
+      <span class="sl-label">RES</span>
+      <div class="knob" data-knob="resonance" data-min="0.5" data-max="20" data-val="1" data-curve="exp">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-resonance">1.0</span>
+    </div>
+    <div class="sl-item">
+      <span class="sl-label">VOL</span>
+      <div class="knob" data-knob="volume" data-min="0" data-max="1" data-val="0.65">
+        <div class="knob-track"><div class="knob-indicator"></div></div>
+        <svg class="knob-ring" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="22" fill="none" stroke="#18202e" stroke-width="2"/>
+          <circle class="ring-fill" cx="25" cy="25" r="22" fill="none" stroke="var(--accent)" stroke-width="2"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2" stroke-linecap="round" transform="rotate(135 25 25)"/>
+        </svg>
+      </div>
+      <span class="sl-val" id="sv-volume">0.65</span>
+    </div>
+  </div>
+</div>
+
+<div id="pianoRoll">
+  <div class="pr-hdr">
+    <div class="pr-hdr-spacer"><span class="pr-hdr-spacer-txt">NOTES</span></div>
+    <div class="col-hdrs-wrap"><div class="col-hdrs-inner" id="colHdrs"></div></div>
+  </div>
+  <div class="pr-body">
+    <div class="piano-keys-wrap" id="pianoKeys"></div>
+    <div class="grid-scroll" id="gridScroll">
+      <div class="grid-inner" id="gridInner"></div>
+    </div>
+  </div>
+</div>
+
+<div id="statusBar">
+  <div class="sb-item">
+    <div class="sb-dot on" id="sbDotMode"></div>
+    <div class="oct-ctrl">
+      <span class="oct-lbl">OCT</span>
+      <button class="oct-btn" id="octDn">−</button>
+      <span class="oct-val" id="octVal">3</span>
+      <button class="oct-btn" id="octUp">+</button>
+    </div>
+  </div>
+  <div class="sb-item"><div class="sb-dot" id="sbDotAudio"></div><span id="sbAudio">AUDIO READY</span></div>
+  <div class="sb-item"><span>NOTES IN COL: <b id="sbNoteCount" style="color:var(--accent)">0</b></span></div>
+  <div class="sb-item"><span>FILLED COLS: <b id="sbColCount" style="color:var(--accent)">1</b></span></div>
+  <div style="margin-left:auto;color:var(--text3);font-size:9px;letter-spacing:.1em;">MyDumbMusic v1.0</div>
+</div>
+
+<!-- Recording overlay - 4 rows aligned with main layout -->
+<div id="recOverlay">
+  <div class="rec-row rec-row-header"><canvas id="spectrumCanvas"></canvas></div>
+  <div class="rec-row rec-row-sound">
+    <div class="rec-sound-inner">
+      <div id="metronome">
+        <span class="sp-label">CLICK</span>
+        <div id="metro-inner">
+          <div class="metro-controls">
+            <div class="metro-pip" id="metroPip"></div>
+            <div class="metro-bpm-wrap">
+              <span class="metro-bpm" id="metroBpm" title="Drag to change BPM">120</span>
+              <span class="metro-bpm-lbl">BPM</span>
+            </div>
+            <button class="metro-btn" id="metroBtn" title="Toggle metronome">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="sp-div"></div>
+      <div class="rec-btn-section">
+        <button class="rec-wave-btn idle" id="recBtn">
+          <svg viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="5"/></svg>
+          <span class="wlabel" id="recBtnLabel">RECORD</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="rec-row rec-row-colhdr">
+    <div class="rec-colhdr-row">
+      <span class="rec-list-title">RECORDINGS</span>
+      <button class="midi-open-btn" id="midiOpenBtn" title="Import MIDI file">
+        <svg viewBox="0 0 13 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 5a1 1 0 0 1 1-1h2.5l1.2 1.5H11a1 1 0 0 1 1 1v5.5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1z"/>
+          <line x1="6.5" y1="7.5" x2="6.5" y2="11.5"/>
+          <polyline points="5,10 6.5,11.5 8,10"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="rec-row rec-row-grid">
+    <div class="rec-panel-inner" id="recPanelInner">
+      <div class="rec-empty" id="recEmpty">No recordings yet</div>
+    </div>
+  </div>
+</div>
+
+<div id="recHint">
+  <div class="rec-hint-box">
+    <div class="rec-hint-msg">TAP TO PLAY</div>
+    <div class="rec-hint-sub">Play a note to start recording</div>
+    <span class="rec-hint-key">SPACE</span>
+  </div>
+</div>
+
+<div id="loadingSpinner">
+  <div class="spinner-ring"></div>
+  <div class="spinner-label">IMPORTING MIDI</div>
+</div>
+<input type="file" id="midiFileInput" accept=".mid,.midi" style="display:none">
+
+<script>
+'use strict';
+
+// ---------------------------------------------
+// CONSTANTS
+// ---------------------------------------------
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+// 88 notes: index 0 = midi 108 (C8), index 87 = midi 21 (A0)
+const NOTES = Array.from({ length: 88 }, (_, i) => {
+  const midi = 108 - i;
+  const semi = midi % 12;
+  const oct  = Math.floor(midi / 12) - 1;
+  return {
+    name: NOTE_NAMES[semi] + oct,
+    noteName: NOTE_NAMES[semi],
+    octave: oct, semitone: semi,
+    isBlack: NOTE_NAMES[semi].includes('#'),
+    midi,
+    freq: 440 * Math.pow(2, (midi - 69) / 12),
+  };
+});
+const N = NOTES.length; // 88
+
+// Piano-keyboard mapping: key char → semitone offset from C at kbOctave
+const KEY_MAP = {
+  z:0,s:1,x:2,d:3,c:4,v:5,g:6,b:7,h:8,n:9,j:10,m:11,
+  q:12,2:13,w:14,3:15,e:16,r:17,5:18,t:19,6:20,y:21,7:22,u:23,
+};
+const SEMI_TO_KEY = {};
+Object.entries(KEY_MAP).forEach(([k, v]) => { SEMI_TO_KEY[v] = k.toUpperCase(); });
+
+const COL_W = 52;
+const ROW_H = 20;
+
+// ---------------------------------------------
+// STATE
+// ---------------------------------------------
+const S = {
+  mode: 'compose',        // 'compose' | 'play'
+  waveType: 'mellow',
+  attack: 0.02, decay: 0.15, sustain: 0.7, release: 0.4,
+  volume: 0.65, cutoff: 8000, resonance: 1,
+  columns: [new Set()],
+  composeCol: 0,
+  playCol: -1,
+  kbOctave: 3,
+  // Audio
+  ctx: null, masterGain: null, filter: null, analyser: null,
+  // Interaction flags
+  pressedKeys: new Set(),   // compose-mode note keys currently held
+  liveKeys: new Set(),      // play-mode keys/mouse currently held
+  arrowHeld: false,
+  arrowStopTimer: null,
+  spaceHeld: false,
+  dragNote: null,           // noteIdx being dragged
+  dragOriginal: null,       // Set of noteIdxs that existed before drag started
+  erasing: false,
+  // Undo/redo
+  undoStack: [],
+  redoStack: [],
+  // Metronome
+  metroBpm: 120,
+  metroActive: false,
+  metroInterval: null,
+  metroNextBeat: 0,
+};
+
+// DOM refs
+const cellEls    = Array.from({ length: N }, () => []);
+const keyEls     = [];   // piano key elements, indexed by noteIdx
+const colHdrEls  = [];
+let composeOvl, playOvl;
+
+// ---------------------------------------------
+// UNDO / REDO
+// ---------------------------------------------
+function snapshot() {
+  S.undoStack.push({ cols: S.columns.map(c => [...c]), col: S.composeCol });
+  if (S.undoStack.length > 64) S.undoStack.shift();
+  S.redoStack = [];
+}
+
+function applySnap(snap) {
+  // Remove extra DOM columns
+  for (let ci = S.columns.length - 1; ci >= 1; ci--) {
+    for (let ni = 0; ni < N; ni++) { cellEls[ni][ci]?.remove(); cellEls[ni].splice(ci, 1); }
+    colHdrEls[ci]?.remove(); colHdrEls.splice(ci, 1);
+  }
+  S.columns = snap.cols.map(a => new Set(a));
+  S.composeCol = Math.min(snap.col, S.columns.length - 1);
+  for (let ci = 1; ci < S.columns.length; ci++) addColDOM(ci);
+  refreshCells();
+  keyEls.forEach(k => k.classList.remove('preview'));
+  S.columns[S.composeCol].forEach(ni => keyEls[ni]?.classList.add('preview'));
+  stopAll(true);
+  updateOverlays(); updateHdrs(); updateStatus();
+}
+
+function undo() {
+  if (!S.undoStack.length) return;
+  S.redoStack.push({ cols: S.columns.map(c => [...c]), col: S.composeCol });
+  applySnap(S.undoStack.pop());
+}
+
+function redo() {
+  if (!S.redoStack.length) return;
+  S.undoStack.push({ cols: S.columns.map(c => [...c]), col: S.composeCol });
+  applySnap(S.redoStack.pop());
+}
+
+// ---------------------------------------------
+// AUDIO
+// ---------------------------------------------
+// Design: create-and-destroy oscillators per note. Simple and correct.
+// Firefox fix: osc.start() and gain events share the same `startAt` timestamp
+// so they land in the same audio buffer frame. No async, no promises in the
+// hot path - rapid note triggering must be synchronous to avoid skipped notes.
+
+// Per-voice gain tuned for equal perceived loudness across wave types.
+const WAVE_GAIN = {
+  mellow: 0.75, glass: 0.80, sawtooth: 0.26,
+  triangle: 0.85, bells: 0.70, square: 0.20, organ: 0.55,
+};
+const VOICE_PEAK = waveType => WAVE_GAIN[waveType] ?? 0.75;
+
+// Safe scheduling lookahead: baseLatency + one extra buffer margin.
+// Keeps osc.start() and gain events in the same future audio frame in all browsers.
+const safeLatency = ctx => Math.max(ctx.baseLatency || 0, 0.005) + 0.01;
+
+// Chord nodes: array of { osc, gain, freq, noteIdx, startAt }
+let activeNodes = [];
+
+// Live-note nodes (play mode): noteIdx → { osc, gain, startAt }
+const liveNodes = {};
+
+// Smoothly ramp a scalar AudioParam - for knob changes (volume, cutoff, Q).
+function rampParam(param, value, tc = 0.008) {
+  if (!S.ctx) return;
+  param.setTargetAtTime(value, S.ctx.currentTime, tc);
+}
+
+function initAudio() {
+  if (S.ctx) { if (S.ctx.state === 'suspended') S.ctx.resume(); return; }
+  S.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  S.ctx.resume(); // fire and forget - safeLatency headroom covers boot time
+  S.masterGain = S.ctx.createGain();
+  S.masterGain.gain.value = S.volume;
+  S.filter = S.ctx.createBiquadFilter();
+  S.filter.type = 'lowpass';
+  S.filter.frequency.value = S.cutoff;
+  S.filter.Q.value = S.resonance;
+  S.filter.connect(S.masterGain);
+  S.analyser = S.ctx.createAnalyser();
+  S.analyser.fftSize = 256;
+  S.analyser.smoothingTimeConstant = 0.6;
+  // Transparent limiter at the output: catches intersample peaks without
+  // audible pumping. Threshold -3dB, ratio 20:1, instant attack, fast release.
+  // This is the last resort safety net - proper gain staging above should keep
+  // signals well below this threshold in normal use.
+  const limiter = S.ctx.createDynamicsCompressor();
+  limiter.threshold.value = -3;
+  limiter.knee.value      = 0;
+  limiter.ratio.value     = 20;
+  limiter.attack.value    = 0.001;
+  limiter.release.value   = 0.05;
+  S.masterGain.connect(limiter);
+  limiter.connect(S.analyser);
+  S.analyser.connect(S.ctx.destination);
+  document.getElementById('sbDotAudio').classList.add('on');
+  document.getElementById('sbAudio').textContent = 'AUDIO ACTIVE';
+  startSpectrum();
+}
+
+// Build a voice: one or more oscillators summed into a master GainNode.
+// All oscillators start at startAt so they never fire before the envelope opens.
+function makeVoice(ctx, ni, destination, waveType, startAt) {
+  const freq = NOTES[ni].freq;
+  const master = ctx.createGain();
+  master.connect(destination);
+
+  // Partial gains are pre-normalised so they sum to 1.0 for every voice type.
+  // This ensures VOICE_PEAK is the true output ceiling regardless of partial count -
+  // unnormalised voices (organ sums to 1.85, glass to 1.52) would overdrive the filter.
+  const partials = {
+    mellow:   [{ f: 1,    g: 0.81, d: 0 }, { f: 2,    g: 0.15, d: 0 }, { f: 3,    g: 0.04, d: 0 }],
+    bells:    [{ f: 1,    g: 0.60, d: 0 }, { f: 2.76, g: 0.28, d: 0 }, { f: 5.4,  g: 0.12, d: 0 }],
+    organ:    [{ f: 1,    g: 0.53, d: 0 }, { f: 3,    g: 0.26, d: 0 }, { f: 5,    g: 0.13, d: 0 }, { f: 7, g: 0.08, d: 0 }],
+    glass:    [{ f: 1,    g: 0.65, d: 0 }, { f: 1,    g: 0.26, d: 6 }, { f: 2,    g: 0.09, d: 3 }],
+    sawtooth: [{ type: 'sawtooth' }],
+    square:   [{ type: 'square'   }],
+    triangle: [{ type: 'triangle' }],
+  };
+
+  const defs = partials[waveType] || partials.mellow;
+  const oscs = defs.map(({ f = 1, g = 1, d = 0, type = 'sine' }) => {
+    const osc = ctx.createOscillator();
+    if (defs.length === 1 && type !== 'sine') {
+      // Native waveform - connect directly to master, no partial gain node needed
+      osc.connect(master);
+    } else {
+      const pg = ctx.createGain();
+      pg.gain.value = g;
+      osc.connect(pg); pg.connect(master);
+    }
+    osc.type = type;
+    osc.frequency.value = freq * f + d;
+    osc.start(startAt); // always at startAt - never at 'now'
+    return osc;
+  });
+
+  return { oscs, gain: master };
+}
+
+function playChord(noteSet) {
+  if (!S.ctx || !noteSet.size) return;
+  const ctx = S.ctx;
+  const now = ctx.currentTime;
+  const startAt = now + safeLatency(ctx);
+  const { attack: atk, decay: dcy, sustain: sus } = S;
+  const n = noteSet.size;
+  const peak = VOICE_PEAK(S.waveType) / Math.pow(n, 0.35);
+
+  noteSet.forEach(ni => {
+    const { oscs, gain } = makeVoice(ctx, ni, S.filter, S.waveType, startAt);
+    gain.gain.setValueAtTime(0.001, startAt);
+    gain.gain.linearRampToValueAtTime(peak, startAt + atk);
+    gain.gain.setTargetAtTime(peak * sus, startAt + atk, dcy / 3);
+    activeNodes.push({ oscs, gain, freq: NOTES[ni].freq, noteIdx: ni, startAt });
+  });
+
+  if (rec.active || rec.armed) noteSet.forEach(ni => recNoteOn(ni));
+}
+
+// Release a gain node: cancel scheduled events and ramp to silence.
+function releaseGain(gain, startAt, releaseTime) {
+  const now = S.ctx.currentTime;
+  const from = Math.max(now, startAt);
+  gain.cancelScheduledValues(from);
+  gain.setValueAtTime(gain.value, from);
+  gain.linearRampToValueAtTime(0.0001, from + releaseTime);
+  return from + releaseTime + 0.01;
+}
+
+function stopAll(withRelease = true) {
+  if (rec.active) activeNodes.map(n => n.noteIdx).forEach(recNoteOff);
+  if (!S.ctx) { activeNodes = []; return; }
+  const ctx = S.ctx, now = ctx.currentTime;
+  activeNodes.forEach(({ oscs, gain, startAt }) => {
+    try {
+      if (withRelease) {
+        const stopAt = releaseGain(gain.gain, startAt, S.release);
+        oscs.forEach(o => { try { o.stop(stopAt); } catch(e){} });
+      } else {
+        gain.disconnect();
+        oscs.forEach(o => { try { o.stop(now + 0.001); } catch(e){} });
+      }
+    } catch(e) {}
+  });
+  activeNodes = [];
+}
+
+// Retune existing chord oscillators to a new note set.
+// Matched nodes retune in place (no click). Unmatched fade out. New notes start fresh.
+function retuneToChord(noteSet) {
+  if (!S.ctx || !activeNodes.length) { if (noteSet.size) playChord(noteSet); return; }
+  const ctx = S.ctx, now = ctx.currentTime;
+  const startAt = now + safeLatency(ctx);
+  const newNotes = [...noteSet];
+  const used = new Set();
+  const matched = [];
+
+  newNotes.forEach(ni => {
+    const freq = NOTES[ni]?.freq; if (!freq) return;
+    let best = -1, bestDist = Infinity;
+    activeNodes.forEach((node, i) => {
+      if (used.has(i)) return;
+      const d = Math.abs(node.freq - freq);
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    if (best >= 0) { used.add(best); matched.push({ node: activeNodes[best], ni }); }
+  });
+
+  matched.forEach(({ node, ni }) => {
+    // Retune each partial oscillator proportionally to the new root frequency
+    const oldFreq = node.freq, newFreq = NOTES[ni].freq;
+    node.oscs.forEach(osc => {
+      const ratio = osc.frequency.value / oldFreq;
+      osc.frequency.setTargetAtTime(newFreq * ratio, now, 0.003);
+    });
+    node.freq = newFreq;
+    node.noteIdx = ni;
+  });
+
+  activeNodes.forEach((node, i) => {
+    if (used.has(i)) return;
+    try {
+      node.gain.gain.cancelScheduledValues(now);
+      node.gain.gain.setValueAtTime(node.gain.gain.value, now);
+      node.gain.gain.linearRampToValueAtTime(0.0001, now + 0.04);
+      node.oscs.forEach(o => { try { o.stop(now + 0.05); } catch(e){} });
+    } catch(e) {}
+  });
+
+  activeNodes = matched.map(m => m.node);
+
+  const matchedNis = new Set(matched.map(m => m.ni));
+  const n = newNotes.length;
+  const peak = VOICE_PEAK(S.waveType) / Math.pow(n, 0.35);
+  const { attack: atk, decay: dcy, sustain: sus } = S;
+  newNotes.filter(ni => !matchedNis.has(ni)).forEach(ni => {
+    const { oscs, gain } = makeVoice(ctx, ni, S.filter, S.waveType, startAt);
+    gain.gain.setValueAtTime(0.001, startAt);
+    gain.gain.linearRampToValueAtTime(peak, startAt + atk);
+    gain.gain.setTargetAtTime(peak * sus, startAt + atk, dcy / 3);
+    activeNodes.push({ oscs, gain, freq: NOTES[ni].freq, noteIdx: ni, startAt });
+  });
+}
+
+function playLiveNote(ni) {
+  if (!S.ctx || liveNodes[ni]) return;
+  const note = NOTES[ni]; if (!note) return;
+  const ctx = S.ctx, now = ctx.currentTime;
+  const startAt = now + safeLatency(ctx);
+  const { oscs, gain } = makeVoice(ctx, ni, S.masterGain, S.waveType, startAt);
+  const peak = VOICE_PEAK(S.waveType);
+  gain.gain.setValueAtTime(0.001, startAt);
+  gain.gain.linearRampToValueAtTime(peak, startAt + S.attack);
+  gain.gain.setTargetAtTime(peak * S.sustain, startAt + S.attack, S.decay / 3);
+  liveNodes[ni] = { oscs, gain, startAt };
+  keyEls[ni]?.classList.add('preview');
+  if (rec.active || rec.armed) recNoteOn(ni);
+}
+
+function releaseLiveNote(ni) {
+  if (!liveNodes[ni] || !S.ctx) return;
+  const { oscs, gain, startAt } = liveNodes[ni];
+  try {
+    const stopAt = releaseGain(gain.gain, startAt, S.release);
+    oscs.forEach(o => { try { o.stop(stopAt); } catch(e){} });
+  } catch(e) {}
+  keyEls[ni]?.classList.remove('preview');
+  delete liveNodes[ni];
+  recNoteOff(ni);
+}
+
+function stopLiveNotes() {
+  if (!S.ctx) return;
+  const now = S.ctx.currentTime;
+  Object.entries(liveNodes).forEach(([idx, { oscs, gain, startAt }]) => {
+    try {
+      const stopAt = releaseGain(gain.gain, startAt || now, S.release);
+      oscs.forEach(o => { try { o.stop(stopAt); } catch(e){} });
+    } catch(e) {}
+    const ni = parseInt(idx);
+    keyEls[ni]?.classList.remove('preview');
+  });
+  Object.keys(liveNodes).forEach(k => delete liveNodes[k]);
+}
+// ---------------------------------------------
+// SPECTRUM ANALYSER
+// ---------------------------------------------
+function startSpectrum() {
+  const canvas = document.getElementById('spectrumCanvas');
+  if (!canvas || !S.analyser) return;
+  const BAR_COUNT = 28, GAP = 2, PEAK_DECAY = 0.012;
+  const bufLen = S.analyser.frequencyBinCount;
+  const freqData = new Uint8Array(bufLen);
+  const peaks = new Float32Array(BAR_COUNT);
+
+  (function draw() {
+    requestAnimationFrame(draw);
+    S.analyser.getByteFrequencyData(freqData);
+    const dpr = window.devicePixelRatio || 1;
+    const row = canvas.closest('.rec-row-header') || canvas.parentElement;
+    const w = Math.round((row?.offsetWidth || 350) * dpr);
+    const h = Math.round((row?.offsetHeight || 52) * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+
+    let lo = 0, hi = 0;
+    const mid = Math.floor(bufLen * 0.25);
+    for (let i = 0; i < bufLen; i++) (i < mid ? (lo += freqData[i]) : (hi += freqData[i]));
+    const total = lo + hi;
+    const freqCeil = (total > 10 && lo / total > 0.8) ? 0.18 : 0.85;
+    const isPlaying = total > bufLen * 2;
+
+    const barW = (w - (BAR_COUNT - 1) * GAP) / BAR_COUNT;
+    const segH = Math.max(2, Math.round(h / 11));
+    const segGap = Math.max(1, Math.round(segH * 0.35));
+    const segTotal = segH + segGap;
+
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const frac = Math.pow(i / (BAR_COUNT - 1), 1.4);
+      const bin = Math.min(Math.floor(frac * bufLen * freqCeil), bufLen - 1);
+      const b = (freqData[Math.max(0,bin-1)] * 0.175 + freqData[bin] * 0.65 + freqData[Math.min(bufLen-1,bin+1)] * 0.175) / 255;
+      const flutter = isPlaying ? (Math.sin(Date.now() * 0.003 + i * 1.7) * 0.018 + 0.012) : 0;
+      const raw = b + flutter;
+      peaks[i] = raw > peaks[i] ? raw : Math.max(0, peaks[i] - PEAK_DECAY);
+      const floor = isPlaying ? (segTotal / h) * 0.6 : 0;
+      const disp = Math.max(peaks[i], floor);
+      const barH = disp * h;
+      const numSegs = Math.max(isPlaying ? 1 : 0, Math.floor(barH / segTotal));
+      const x = Math.round(i * (barW + GAP));
+      const bw = Math.max(1, Math.round(barW));
+      for (let s = 0; s < numSegs; s++) {
+        ctx.fillStyle = `rgba(0,200,230,${(0.07 + (s / Math.max(1,numSegs-1)) * 0.2).toFixed(2)})`;
+        ctx.fillRect(x, Math.max(0, h - (s+1)*segTotal), bw, segH);
+      }
+      if (peaks[i] > 0.02 && numSegs > 0) {
+        ctx.fillStyle = 'rgba(0,220,255,0.32)';
+        ctx.fillRect(x, Math.max(0, Math.round(h - barH - segTotal)), bw, segH);
+      }
+    }
+  })();
+}
+
+// ---------------------------------------------
+// RECORDING
+// ---------------------------------------------
+const recordings = [];
+const rec = {
+  active: false, armed: false,
+  startTime: null, events: [], openNotes: {},
+  params: null, takeName: null,
+  item: null, canvas: null, domId: null, animFrame: null,
+};
+
+const recParamsSnap = () => ({
+  waveType: S.waveType,
+  attack: S.attack, decay: S.decay, sustain: S.sustain, release: S.release,
+  volume: S.volume, cutoff: S.cutoff, resonance: S.resonance,
+  bpm: S.metroBpm,
+});
+
+function recNoteOn(ni) {
+  if (!rec.active && !rec.armed) return;
+  const now = performance.now();
+  if (rec.armed && !rec.active) {
+    rec.active = true; rec.startTime = now; rec.armed = false;
+    hideRecHint(); updateRecBtn();
+  }
+  rec.openNotes[ni] = now - rec.startTime;
+}
+
+function recNoteOff(ni) {
+  if (!rec.active || !(ni in rec.openNotes)) return;
+  const endMs = performance.now() - rec.startTime;
+  const startMs = rec.openNotes[ni];
+  delete rec.openNotes[ni];
+  if (endMs <= startMs) return;
+  rec.events.push({ midi: NOTES[ni].midi, noteIdx: ni, startMs, durationMs: endMs - startMs, velocity: 100 });
+}
+
+function startArmed() {
+  initAudio();
+  if (S.mode !== 'play') enterPlay();
+  rec.armed = true; rec.active = false; rec.startTime = null;
+  rec.events = []; rec.openNotes = {};
+  rec.params = recParamsSnap();
+  const d = new Date();
+  rec.takeName = 'T-' + String(d.getHours()).padStart(2,'0')
+    + String(d.getMinutes()).padStart(2,'0') + String(d.getSeconds()).padStart(2,'0');
+  const id = rec.domId = Date.now();
+  rec.item = createRecItemDOM(rec.takeName, id, true);
+  rec.canvas = rec.item.querySelector('canvas');
+  document.getElementById('recEmpty').style.display = 'none';
+  document.getElementById('recPanelInner').prepend(rec.item);
+  resizeRecCanvas(rec.canvas);
+  updateRecBtn(); startRecAnim(id); showRecHint();
+}
+
+function stopRecording() {
+  if (!rec.armed && !rec.active) return;
+  if (rec.active) Object.keys(rec.openNotes).map(Number).forEach(recNoteOff);
+  if (rec.active && rec.events.length) {
+    const trimDur = Math.max(...rec.events.map(e => e.startMs + e.durationMs));
+    const recObj = { id: recordings.length + 1, name: rec.takeName,
+      params: rec.params, events: rec.events, durationMs: trimDur, item: rec.item };
+    recordings.push(recObj);
+    rec.item?.classList.remove('active-rec');
+    drawRecCanvas(rec.canvas, rec.events, trimDur);
+    const durEl = rec.item?.querySelector('.rec-item-dur');
+    if (durEl) { durEl.textContent = fmtTime(trimDur); durEl.classList.remove('live'); }
+    wireRecButtons(recObj);
+  } else {
+    rec.item?.remove();
+    if (!recordings.length) document.getElementById('recEmpty').style.display = '';
+  }
+  if (rec.animFrame) { cancelAnimationFrame(rec.animFrame); rec.animFrame = null; }
+  rec.armed = rec.active = false; rec.item = rec.canvas = null;
+  hideRecHint(); updateRecBtn();
+  enterCompose();
+}
+
+function createRecItemDOM(name, id, live) {
+  const el = document.createElement('div');
+  el.className = 'rec-item' + (live ? ' active-rec' : '');
+  el.innerHTML = `
+    <div class="rec-item-meta">
+      <span class="rec-item-num">${name}</span>
+      <span class="rec-item-dur${live ? ' live' : ''}" id="recDur${id}">${live ? '0:00.0' : ''}</span>
+      <div class="rec-item-btns">
+        <button class="rec-ibtn play-btn" title="Play / Stop"${live ? ' disabled' : ''}>
+          <svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>
+        </button>
+        <button class="rec-ibtn dl-btn" title="Download MIDI"${live ? ' disabled' : ''}>
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
+            <line x1="5" y1="1" x2="5" y2="7"/><polyline points="2,5 5,8 8,5"/><line x1="1" y1="9" x2="9" y2="9"/>
+          </svg>
+        </button>
+        <button class="rec-ibtn del" title="Delete take"${live ? ' disabled' : ''}>
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="rec-canvas-wrap" id="recWrap${id}">
+      <canvas class="rec-canvas" id="recCanvas${id}" height="48" tabindex="-1"></canvas>
+      <div class="rec-playhead" id="recPH${id}"></div>
+    </div>`;
+  return el;
+}
+
+function wireRecButtons(recObj) {
+  const item = recObj.item; if (!item) return;
+  const playBtn = item.querySelector('.play-btn');
+  const delBtn  = item.querySelector('.del');
+  const dlBtn   = item.querySelector('.dl-btn');
+  const wrap    = item.querySelector('.rec-canvas-wrap');
+  [playBtn, delBtn, dlBtn].forEach(b => b && (b.disabled = false));
+
+  // Ghost scrub cursor
+  const ghost = document.createElement('div');
+  ghost.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.3);pointer-events:none;display:none;';
+  wrap.appendChild(ghost);
+
+  const isThisPlaying = () => pb.active && pb.recObj === recObj;
+
+  recObj._updateCursor = () => {
+    wrap.classList.toggle('scrubbing', isThisPlaying());
+    if (!isThisPlaying()) ghost.style.display = 'none';
+  };
+
+  playBtn.addEventListener('click', () =>
+    isThisPlaying() ? stopPlayback() : startPlayback(recObj, 0));
+
+  wrap.addEventListener('mousedown', e => {
+    const frac = (e.clientX - wrap.getBoundingClientRect().left) / wrap.offsetWidth;
+    startPlayback(recObj, isThisPlaying() ? frac * recObj.durationMs : 0);
+  });
+  wrap.addEventListener('mousemove', e => {
+    if (!isThisPlaying()) { ghost.style.display = 'none'; return; }
+    ghost.style.left = (e.clientX - wrap.getBoundingClientRect().left) + 'px';
+    ghost.style.display = 'block';
+  });
+  wrap.addEventListener('mouseleave', () => {
+    ghost.style.display = 'none';
+    if (!isThisPlaying()) wrap.classList.remove('scrubbing');
+  });
+
+  dlBtn.addEventListener('click', () => {
+    const bytes = buildMidi(recObj);
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+    Object.assign(document.createElement('a'), { href: url, download: (recObj.name || 'take') + '.mid' }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+  delBtn.addEventListener('click', () => {
+    if (item.querySelector('.rec-del-confirm')) return;
+    const ov = document.createElement('div');
+    ov.className = 'rec-del-confirm';
+    ov.innerHTML = `<div class="rec-del-confirm-msg">Delete this take?</div>
+      <div class="rec-del-confirm-btns">
+        <button class="rec-del-no">CANCEL</button>
+        <button class="rec-del-yes">DELETE</button>
+      </div>`;
+    item.appendChild(ov);
+    ov.querySelector('.rec-del-no').addEventListener('click', () => ov.remove());
+    ov.querySelector('.rec-del-yes').addEventListener('click', () => {
+      if (pb.active && pb.recObj === recObj) stopPlayback();
+      const idx = recordings.indexOf(recObj);
+      if (idx !== -1) recordings.splice(idx, 1);
+      item.remove();
+      if (!recordings.length) document.getElementById('recEmpty').style.display = '';
+    });
+  });
+
+  // Click take name to rename inline
+  wireRename(item.querySelector('.rec-item-num'), recObj);
+}
+
+function wireRename(nameEl, recObj) {
+  nameEl.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.className = 'rec-rename-input';
+    input.value = recObj.name;
+    input.maxLength = 16;
+    nameEl.replaceWith(input);
+    input.focus(); input.select();
+    const commit = () => {
+      const val = input.value.trim() || recObj.name;
+      recObj.name = val;
+      const span = document.createElement('span');
+      span.className = 'rec-item-num';
+      span.title = 'Click to rename';
+      span.textContent = val;
+      input.replaceWith(span);
+      wireRename(span, recObj);
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = recObj.name; input.blur(); }
+    });
+  });
+}
+
+function startRecAnim(domId) {
+  const durEl  = document.getElementById('recDur' + domId);
+  const canvas = document.getElementById('recCanvas' + domId);
+  (function loop() {
+    if (!rec.active && !rec.armed) return;
+    rec.animFrame = requestAnimationFrame(loop);
+    if (rec.active) {
+      const elapsed = performance.now() - rec.startTime;
+      if (durEl) durEl.textContent = fmtTime(elapsed);
+      const live = [...rec.events];
+      Object.entries(rec.openNotes).forEach(([ni, startMs]) => {
+        const note = NOTES[+ni];
+        if (note) live.push({ midi: note.midi, noteIdx: +ni, startMs, durationMs: elapsed - startMs, velocity: 100 });
+      });
+      if (live.length && canvas) { resizeRecCanvas(canvas); drawRecCanvas(canvas, live, elapsed); }
+    }
+  })();
+}
+
+const showRecHint  = () => document.getElementById('recHint').classList.add('visible');
+const hideRecHint  = () => document.getElementById('recHint').classList.remove('visible');
+
+function updateRecBtn() {
+  const btn = document.getElementById('recBtn');
+  const lbl = document.getElementById('recBtnLabel');
+  if (!btn) return;
+  if (rec.active) { btn.className = 'rec-wave-btn recording'; lbl.textContent = 'STOP'; }
+  else if (rec.armed) { btn.className = 'rec-wave-btn armed'; lbl.textContent = 'WAITING'; }
+  else { btn.className = 'rec-wave-btn idle'; lbl.textContent = 'RECORD'; }
+}
+
+const fmtTime = ms => {
+  const t = ms / 1000, m = Math.floor(t/60), s = Math.floor(t%60), d = Math.floor((t%1)*10);
+  return `${m}:${String(s).padStart(2,'0')}.${d}`;
+};
+
+function resizeRecCanvas(c) { if (c) c.width = c.offsetWidth || 318; }
+
+function drawRecCanvas(canvas, events, durationMs) {
+  if (!canvas || !events.length) return;
+  const w = canvas.width || 318, h = canvas.height || 48;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  const midis = events.map(e => e.midi);
+  let lo = Math.min(...midis), hi = Math.max(...midis);
+  if (lo === hi) { lo--; hi++; }
+  const range = hi - lo, dur = Math.max(durationMs, 1);
+  events.forEach(e => {
+    const x = (e.startMs / dur) * w;
+    const nw = Math.max(1, (e.durationMs / dur) * w);
+    const y = Math.round((1 - (e.midi - lo) / range) * (h - 2)) + 1;
+    const nh = Math.max(1, Math.round(h / (range + 2)));
+    const hue = 260 - ((Math.floor(e.midi / 12) - 1) / 8) * 100;
+    ctx.fillStyle = `hsla(${hue},80%,65%,0.9)`;
+    ctx.fillRect(x, y - Math.floor(nh / 2), nw, nh);
+  });
+}
+
+// ---------------------------------------------
+// MIDI EXPORT
+// ---------------------------------------------
+function buildMidi(recObj) {
+  const TPQB = 480;
+  const BPM = recObj.params?.bpm || 120;
+  const USPQB = Math.round(60000000 / BPM);
+  const msPT = (USPQB / 1000) / TPQB;
+
+  const varLen = n => {
+    const out = [n & 0x7f]; n >>= 7;
+    while (n > 0) { out.unshift((n & 0x7f) | 0x80); n >>= 7; }
+    return out;
+  };
+  const w32 = n => [(n>>24)&0xff,(n>>16)&0xff,(n>>8)&0xff,n&0xff];
+  const w16 = n => [(n>>8)&0xff,n&0xff];
+
+  const evts = [];
+  recObj.events.forEach(e => {
+    const on  = Math.round(e.startMs / msPT);
+    const off = Math.round((e.startMs + e.durationMs) / msPT);
+    evts.push({ tick: on,  type: 0x90, midi: e.midi, vel: e.velocity });
+    evts.push({ tick: off, type: 0x80, midi: e.midi, vel: 0 });
+  });
+  evts.sort((a, b) => a.tick - b.tick || a.type - b.type);
+
+  const track = [
+    ...varLen(0), 0xff, 0x51, 0x03,
+    (USPQB>>16)&0xff, (USPQB>>8)&0xff, USPQB&0xff,
+  ];
+  let last = 0;
+  evts.forEach(e => {
+    track.push(...varLen(e.tick - last), e.type, e.midi, e.vel);
+    last = e.tick;
+  });
+  track.push(...varLen(0), 0xff, 0x2f, 0x00);
+
+  return new Uint8Array([
+    0x4d,0x54,0x68,0x64, ...w32(6), ...w16(0), ...w16(1), ...w16(TPQB),
+    0x4d,0x54,0x72,0x6b, ...w32(track.length),
+    ...track,
+  ]);
+}
+
+// ---------------------------------------------
+// PLAYBACK
+// ---------------------------------------------
+const pb = {
+  active: false, recObj: null,
+  startAudioTime: null, startMs: 0,
+  nodes: [], animFrame: null, stopTimer: null, schedTimer: null,
+  playBtn: null, playhead: null, canvas: null,
+};
+
+function startPlayback(recObj, fromMs) {
+  initAudio();
+  stopPlayback();
+  const { ctx } = S, now = ctx.currentTime, p = recObj.params;
+  Object.assign(pb, {
+    active: true, recObj, startAudioTime: now, startMs: fromMs, nodes: [],
+    canvas: recObj.item.querySelector('.rec-canvas'),
+    playhead: recObj.item.querySelector('.rec-playhead'),
+    playBtn: recObj.item.querySelector('.play-btn'),
+  });
+  recObj._updateCursor?.();
+  if (pb.playhead && pb.canvas) {
+    pb.playhead.style.left = (fromMs / recObj.durationMs * pb.canvas.offsetWidth) + 'px';
+    pb.playhead.style.display = 'block';
+  }
+  if (pb.playBtn) {
+    pb.playBtn.classList.add('play-active');
+    pb.playBtn.innerHTML = '<svg viewBox="0 0 10 10" fill="currentColor"><rect x="1.5" y="1.5" width="3" height="7"/><rect x="5.5" y="1.5" width="3" height="7"/></svg>';
+  }
+  // Sort events once by start time for sequential lookahead scheduling
+  const sortedEvts = [...recObj.events].sort((a, b) => a.startMs - b.startMs);
+  let schedIdx = 0;
+  // Skip events already past (seeking into middle of recording)
+  while (schedIdx < sortedEvts.length && sortedEvts[schedIdx].startMs + sortedEvts[schedIdx].durationMs <= fromMs)
+    schedIdx++;
+
+  const LOOKAHEAD_S = 2;   // schedule this far ahead of audio clock
+  const SCHED_TICK  = 100; // ms between scheduler runs
+
+  function scheduleNotes() {
+    if (!pb.active) return;
+    const audioNow = S.ctx.currentTime;
+    const horizon  = audioNow + LOOKAHEAD_S; // schedule notes starting before this audio time
+    const p = recObj.params;
+    const atk = p.attack, dcy = p.decay, sus = p.sustain, rel = p.release, tc = dcy / 3;
+    const peak = VOICE_PEAK(p.waveType);
+
+    while (schedIdx < sortedEvts.length) {
+      const evt = sortedEvts[schedIdx];
+      // Audio start time for this note
+      const startAt = pb.startAudioTime + Math.max(0, evt.startMs - fromMs) / 1000 + safeLatency(S.ctx);
+      if (startAt > horizon) break; // nothing more ready yet
+      schedIdx++;
+
+      const note = NOTES[evt.noteIdx]; if (!note) continue;
+      const noteStopAt = startAt + evt.durationMs / 1000;
+      const { oscs, gain } = makeVoice(S.ctx, evt.noteIdx, S.filter, p.waveType, startAt);
+
+      gain.gain.setValueAtTime(0.001, startAt);
+      gain.gain.linearRampToValueAtTime(peak, startAt + atk);
+      gain.gain.setTargetAtTime(peak * sus, startAt + atk, tc);
+      const decayElapsed = Math.max(0, noteStopAt - (startAt + atk));
+      const gainAtStop = peak * sus + (peak - peak * sus) * Math.exp(-decayElapsed / tc);
+      gain.gain.setValueAtTime(gainAtStop, noteStopAt);
+      gain.gain.linearRampToValueAtTime(0.0001, noteStopAt + rel);
+      oscs.forEach(o => { try { o.stop(noteStopAt + rel + 0.01); } catch(e){} });
+      pb.nodes.push({ oscs, gain });
+    }
+
+    if (schedIdx < sortedEvts.length) {
+      pb.schedTimer = setTimeout(scheduleNotes, SCHED_TICK);
+    } else {
+      // All notes scheduled - set final stop timer for release tail
+      const lastEvt = sortedEvts[sortedEvts.length - 1];
+      const lastStartAt = pb.startAudioTime + Math.max(0, lastEvt.startMs - fromMs) / 1000 + safeLatency(S.ctx);
+      const lastEndMs   = (lastStartAt - pb.startAudioTime + lastEvt.durationMs / 1000 + rel) * 1000;
+      pb.stopTimer = setTimeout(() => stopPlayback(true), lastEndMs * 1.1 + 200);
+    }
+  }
+
+  scheduleNotes();
+  animPlayhead();
+}
+
+function stopPlayback(natural = false) {
+  if (!pb.active) return;
+  clearTimeout(pb.stopTimer); pb.stopTimer = null;
+  clearTimeout(pb.schedTimer); pb.schedTimer = null;
+  cancelAnimationFrame(pb.animFrame); pb.animFrame = null;
+  if (!natural && S.ctx) {
+    // Manual stop or seek: cancel scheduled envelopes and fade out immediately
+    const now = S.ctx.currentTime;
+    pb.nodes.forEach(({ oscs, gain }) => {
+      try {
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.linearRampToValueAtTime(0.0001, now + 0.05);
+        oscs.forEach(o => { try { o.stop(now + 0.06); } catch(e){} });
+      } catch(e) {}
+    });
+  }
+  // natural=true: oscillators already have their full release envelope scheduled
+  // and osc.stop() set - just let them finish, nothing to cancel.
+  pb.nodes = [];
+  if (pb.playBtn) {
+    pb.playBtn.classList.remove('play-active');
+    pb.playBtn.innerHTML = '<svg viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>';
+  }
+  if (pb.playhead) { pb.playhead.style.display = 'none'; pb.playhead.style.left = '0px'; }
+  pb.active = false;
+  const stopped = pb.recObj; pb.recObj = null;
+  stopped?._updateCursor?.();
+}
+
+function animPlayhead() {
+  if (!pb.active) return;
+  pb.animFrame = requestAnimationFrame(animPlayhead);
+  if (!S.ctx || !pb.playhead || !pb.canvas) return;
+  const posMs = pb.startMs + (S.ctx.currentTime - pb.startAudioTime) * 1000;
+  pb.playhead.style.left = (Math.min(1, posMs / pb.recObj.durationMs) * pb.canvas.offsetWidth) + 'px';
+}
+
+// ---------------------------------------------
+// MIDI IMPORT
+// ---------------------------------------------
+function parseMidi(bytes) {
+  let pos = 0;
+  const r  = n => { const v = bytes.slice(pos, pos+n); pos += n; return v; };
+  const r32 = () => { const b = r(4); return (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3]; };
+  const r16 = () => { const b = r(2); return (b[0]<<8)|b[1]; };
+  const rVL = () => { let v = 0; for (let i = 0; i < 4; i++) { const b = bytes[pos++]; v = (v<<7)|(b&0x7f); if (!(b&0x80)) break; } return v; };
+
+  pos = 8;
+  const format = r16(), numTracks = r16(), tpqb = r16();
+  // Tempo map: each entry covers from its tick until the next entry's tick.
+  // Initialised with MIDI default; a tick=0 event in the file replaces it.
+  const tempoMap = [{ tick: 0, usPerBeat: 500000 }];
+  const noteEvents = [];
+
+  for (let t = 0; t < numTracks; t++) {
+    r(4); const chunkLen = r32(), chunkEnd = pos + chunkLen;
+    let tick = 0, lastStatus = 0, hasNotes = false;
+    while (pos < chunkEnd) {
+      tick += rVL();
+      let status = bytes[pos];
+      if (status & 0x80) { lastStatus = status; pos++; } else { status = lastStatus; }
+      const type = (status >> 4) & 0xf;
+      if (type === 0xf) {
+        if (status === 0xff) {
+          const mt = bytes[pos++], ml = rVL();
+          if (mt === 0x51 && ml === 3) {
+            const us = (bytes[pos]<<16)|(bytes[pos+1]<<8)|bytes[pos+2];
+            const last = tempoMap[tempoMap.length - 1];
+            if (tick === last.tick) last.usPerBeat = us; // replace same-tick entry
+            else if (us !== last.usPerBeat) tempoMap.push({ tick, usPerBeat: us });
+          }
+          pos += ml;
+        } else if (status === 0xf0 || status === 0xf7) { const sl = rVL(); pos += sl; }
+        else pos++;
+      } else if (type === 0x9) {
+        const midi = bytes[pos++], vel = bytes[pos++];
+        hasNotes = true;
+        noteEvents.push({ tick, midi, velocity: vel, type: vel > 0 ? 'on' : 'off' });
+      } else if (type === 0x8) {
+        const midi = bytes[pos++]; pos++;
+        hasNotes = true;
+        noteEvents.push({ tick, midi, velocity: 0, type: 'off' });
+      } else {
+        pos += (type === 0xc || type === 0xd) ? 1 : 2;
+      }
+    }
+    pos = chunkEnd;
+    if (format === 1 && t > 0 && hasNotes) break;
+    if (format === 0) break;
+  }
+
+  // Convert ticks to milliseconds by walking the tempo map segments.
+  function tickToMs(targetTick) {
+    let ms = 0, curTick = 0;
+    for (let i = 0; i < tempoMap.length; i++) {
+      const segEnd = (i + 1 < tempoMap.length)
+        ? Math.min(tempoMap[i + 1].tick, targetTick)
+        : targetTick;
+      if (segEnd > curTick)
+        ms += (segEnd - curTick) * (tempoMap[i].usPerBeat / 1000) / tpqb;
+      curTick = segEnd;
+      if (curTick >= targetTick) break;
+    }
+    return ms;
+  }
+
+  const finalTempo = tempoMap[tempoMap.length - 1].usPerBeat;
+  return { bpm: Math.round(60000000 / finalTempo), tickToMs, noteEvents };
+}
+
+function importMidi(bytes, filename) {
+  const { bpm, tickToMs, noteEvents } = parseMidi(bytes);
+  const open = {}, completed = [];
+  noteEvents.sort((a, b) => a.tick - b.tick || (a.type === 'off' ? -1 : 1));
+  noteEvents.forEach(e => {
+    if (e.type === 'on') { open[e.midi] = { tick: e.tick, velocity: e.velocity }; }
+    else if (open[e.midi] != null) {
+      completed.push({ midi: e.midi, startTick: open[e.midi].tick,
+        durationTick: e.tick - open[e.midi].tick, velocity: open[e.midi].velocity });
+      delete open[e.midi];
+    }
+  });
+  const inRange = completed.filter(n => n.midi >= 21 && n.midi <= 108);
+  if (!inRange.length) { alert(!completed.length ? 'No notes found.' : 'No notes in supported range (A0–C8).'); return; }
+
+  const groups = {};
+  inRange.forEach(n => { (groups[n.startTick] = groups[n.startTick] || []).push(n); });
+  const ticks = Object.keys(groups).map(Number).sort((a, b) => a - b);
+
+  clearAll();
+  ticks.forEach((tick, ci) => {
+    while (S.columns.length <= ci) { S.columns.push(new Set()); addColDOM(S.columns.length - 1); }
+    groups[tick].forEach(n => { const ni = 108 - n.midi; S.columns[ci].add(ni); setCellSel(ni, ci, true); });
+    S.composeCol = ci;
+  });
+  ensureTrailing(); updateOverlays(); updateHdrs(); updateStatus(); refreshCells();
+  keyEls.forEach(k => k.classList.remove('preview'));
+
+  const name = filename.replace(/\.(mid|midi)$/i, '').slice(0, 12);
+  const recEvents = inRange.map(n => ({
+    midi: n.midi, noteIdx: 108 - n.midi,
+    startMs: tickToMs(n.startTick),
+    durationMs: Math.max(50, tickToMs(n.startTick + n.durationTick) - tickToMs(n.startTick)),
+    velocity: n.velocity,
+  }));
+  const totalMs = Math.max(...recEvents.map(e => e.startMs + e.durationMs));
+  const params = recParamsSnap(); params.bpm = bpm;
+  const id = Date.now();
+  const item = createRecItemDOM(name, id, false);
+  const durEl = item.querySelector('.rec-item-dur');
+  if (durEl) durEl.textContent = fmtTime(totalMs);
+  document.getElementById('recEmpty').style.display = 'none';
+  document.getElementById('recPanelInner').prepend(item);
+  const canvas = item.querySelector('canvas');
+  resizeRecCanvas(canvas); drawRecCanvas(canvas, recEvents, totalMs);
+  const recObj = { id: recordings.length + 1, name, params, events: recEvents, durationMs: totalMs, item };
+  recordings.push(recObj);
+  wireRecButtons(recObj);
+  document.getElementById('gridScroll').scrollLeft = 0;
+  document.getElementById('pianoKeys').scrollTop = 0;
+}
+
+// ---------------------------------------------
+// GRID CONSTRUCTION
+// ---------------------------------------------
+function buildGrid() {
+  const gi = document.getElementById('gridInner');
+  const pk = document.getElementById('pianoKeys');
+  gi.innerHTML = pk.innerHTML = document.getElementById('colHdrs').innerHTML = '';
+  keyEls.length = colHdrEls.length = 0;
+  for (let i = 0; i < N; i++) cellEls[i] = [];
+
+  // Piano keys
+  NOTES.forEach((note, ni) => {
+    const el = document.createElement('div');
+    el.className = `pkey ${note.isBlack ? 'black' : 'white'}${note.semitone === 0 ? ' c-note' : ''}`;
+    const off = note.midi - ((S.kbOctave + 1) * 12);
+    const kb  = (off >= 0 && SEMI_TO_KEY[off]) ? SEMI_TO_KEY[off] : '';
+    el.innerHTML = `<span class="pkey-name">${note.name}</span><span class="pkey-kb">${kb}</span>`;
+    el.addEventListener('mousedown', e => {
+      e.preventDefault(); initAudio();
+      if (S.mode === 'compose') toggleNote(ni, true);
+      else if (!S.liveKeys.has('m' + ni)) { S.liveKeys.add('m' + ni); playLiveNote(ni); }
+    });
+    el.addEventListener('mouseup', () => {
+      if (S.mode === 'compose') stopAll(true);
+      else { S.liveKeys.delete('m' + ni); releaseLiveNote(ni); }
+    });
+    el.addEventListener('mouseleave', e => {
+      if (e.buttons && S.mode === 'play' && S.liveKeys.has('m' + ni)) {
+        S.liveKeys.delete('m' + ni); releaseLiveNote(ni);
+      }
+    });
+    pk.appendChild(el);
+    keyEls.push(el);
+  });
+
+  // Grid rows
+  NOTES.forEach((note, ni) => {
+    const row = document.createElement('div');
+    row.className = `grid-row ${note.isBlack ? 'black-r' : 'white-r'}${note.semitone === 0 ? ' c-r' : ''}`;
+    gi.appendChild(row);
+  });
+
+  // Overlays
+  composeOvl = document.createElement('div');
+  composeOvl.className = 'col-overlay ov-compose';
+  gi.appendChild(composeOvl);
+  playOvl = document.createElement('div');
+  playOvl.className = 'col-overlay ov-play';
+  playOvl.style.display = 'none';
+  gi.appendChild(playOvl);
+
+  for (let ci = 0; ci < S.columns.length; ci++) addColDOM(ci);
+  updateOverlays(); refreshCells();
+}
+
+// Event delegation on the grid - single listener, dispatches by dataset
+function setupGridDelegation() {
+  const gs = document.getElementById('gridScroll');
+
+  gs.addEventListener('mousedown', e => {
+    if (e.button !== 0 && e.button !== 2) return;
+    const cell = e.target.closest('.grid-cell');
+    if (!cell) {
+      // Bare grid click in play mode → switch to compose at clicked column
+      if (S.mode === 'play') {
+        const x = e.clientX - gs.getBoundingClientRect().left + gs.scrollLeft;
+        const ci = Math.floor(x / COL_W);
+        if (ci >= 0 && ci < S.columns.length) S.playCol = ci;
+        setMode('compose');
+      }
+      return;
+    }
+    e.preventDefault();
+    initAudio();
+    const ni = +cell.dataset.ni, ci = +cell.dataset.ci;
+    const isFocused = ci === S.composeCol;
+    const isTrailing = ci === S.columns.length - 1 && S.columns[ci].size === 0;
+
+    if (e.button === 2) {
+      // Right-click erase
+      if (S.mode !== 'compose') return;
+      if (!isFocused) focusCol(ci);
+      if (S.columns[ci].has(ni)) {
+        snapshot();
+        S.columns[ci].delete(ni); setCellSel(ni, ci, false);
+        keyEls[ni]?.classList.remove('preview');
+        stopAll(true); updateStatus();
+      }
+      S.erasing = true;
+      return;
+    }
+
+    // Left-click
+    if (S.mode === 'play') { S.playCol = ci; setMode('compose'); scrollToCol(); return; }
+
+    if (isTrailing && !isFocused) {
+      focusCol(ci);
+      S.dragOriginal = new Set(S.columns[ci]);
+      S.dragNote = ni;
+      toggleNote(ni, true);
+    } else if (!isFocused) {
+      focusCol(ci);
+      clearTimeout(S.arrowStopTimer);
+      const col = S.columns[ci];
+      if (col.size) { playChord(col); }
+      col.forEach(n => keyEls[n]?.classList.add('preview'));
+    } else {
+      S.dragOriginal = new Set(S.columns[ci]);
+      S.dragNote = ni;
+      toggleNote(ni, true);
+      S.dragOriginal.delete(ni);
+    }
+  });
+
+  gs.addEventListener('mouseover', e => {
+    const cell = e.target.closest('.grid-cell');
+    if (!cell) return;
+    const ni = +cell.dataset.ni, ci = +cell.dataset.ci;
+
+    // Right-drag erase
+    if (S.erasing && e.buttons === 2 && S.mode === 'compose') {
+      const col = S.columns[ci];
+      if (col?.has(ni)) {
+        col.delete(ni); setCellSel(ni, ci, false);
+        keyEls[ni]?.classList.remove('preview'); updateStatus();
+      }
+      return;
+    }
+
+    // Left-drag note movement (within focused column)
+    if (!e.buttons || S.dragNote === null) return;
+    if (ci !== S.composeCol || S.mode !== 'compose' || ni === S.dragNote) return;
+    if (S.dragOriginal?.has(ni)) return; // blocked by pre-existing note
+
+    const col = S.columns[ci];
+    if (col.has(S.dragNote)) { col.delete(S.dragNote); setCellSel(S.dragNote, ci, false); keyEls[S.dragNote]?.classList.remove('preview'); }
+    S.dragNote = ni;
+    col.add(ni); setCellSel(ni, ci, true); keyEls[ni]?.classList.add('preview');
+
+    if (col.size) retuneToChord(col);
+    updateStatus();
+  });
+
+  gs.addEventListener('mouseup', e => {
+    S.dragNote = null; S.dragOriginal = null; S.erasing = false;
+    stopAll(true);
+    if (S.mode === 'play') keyEls.forEach(k => k.classList.remove('preview'));
+  });
+
+  gs.addEventListener('mouseleave', e => {
+    if (e.buttons && !S.dragNote) {
+      stopAll(true);
+      if (S.mode === 'play') keyEls.forEach(k => k.classList.remove('preview'));
+    }
+  });
+
+  gs.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+function addColDOM(ci) {
+  const gi = document.getElementById('gridInner');
+  const rows = gi.querySelectorAll('.grid-row');
+  rows.forEach((row, ni) => {
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell';
+    cell.dataset.ni = ni; cell.dataset.ci = ci;
+    row.appendChild(cell);
+    cellEls[ni][ci] = cell;
+  });
+
+  const hdr = document.createElement('div');
+  hdr.className = 'col-hdr';
+  hdr.innerHTML = `<span>${ci + 1}</span><div class="col-hdr-dot"></div>`;
+  wireHdr(hdr, ci);
+  document.getElementById('colHdrs').appendChild(hdr);
+  colHdrEls[ci] = hdr;
+}
+
+function wireHdr(el, ci) {
+  const playStopKeys = () => { stopAll(true); if (S.mode === 'play') keyEls.forEach(k => k.classList.remove('preview')); };
+  el.addEventListener('mousedown', e => {
+    e.preventDefault(); initAudio();
+    clearTimeout(S.arrowStopTimer);
+    if (S.mode === 'play') {
+      S.playCol = ci;
+      const col = S.columns[ci];
+      if (col?.size) { playChord(col); col.forEach(n => keyEls[n]?.classList.add('preview')); }
+      updateOverlays(); updateHdrs(); scrollToPlayCol();
+    } else {
+      focusCol(ci);
+      const col = S.columns[ci];
+      if (col?.size) { playChord(col); col.forEach(n => keyEls[n]?.classList.add('preview')); }
+    }
+  });
+  el.addEventListener('mouseup', playStopKeys);
+  el.addEventListener('mouseleave', e => { if (e.buttons) playStopKeys(); });
+}
+
+// ---------------------------------------------
+// COLUMN OPERATIONS
+// ---------------------------------------------
+function focusCol(ci) {
+  if (ci < 0 || ci >= S.columns.length) return;
+  keyEls.forEach(k => k.classList.remove('preview'));
+  S.composeCol = ci;
+  if (S.mode === 'compose') S.columns[ci].forEach(ni => keyEls[ni]?.classList.add('preview'));
+  updateOverlays(); updateHdrs(); updateStatus(); scrollToCol();
+}
+
+function toggleNote(ni, holdMode = false) {
+  if (S.mode !== 'compose') return;
+  snapshot();
+  const col = S.columns[S.composeCol];
+  if (col.has(ni)) {
+    col.delete(ni); setCellSel(ni, S.composeCol, false); keyEls[ni].classList.remove('preview');
+  } else {
+    col.add(ni); setCellSel(ni, S.composeCol, true); keyEls[ni].classList.add('preview');
+    if (col.size === 1 && S.composeCol === S.columns.length - 1) { ensureTrailing(); updateHdrs(); }
+  }
+  if (holdMode) {
+    if (col.size) { playChord(col); }
+    else stopAll(true);
+  } else {
+    if (col.size) playChord(col); else stopAll(true);
+  }
+  updateStatus();
+}
+
+function lockCol() {
+  if (!S.columns[S.composeCol].size) return;
+  snapshot();
+  stopAll(true); keyEls.forEach(k => k.classList.remove('preview'));
+  S.composeCol = S.composeCol < S.columns.length - 1
+    ? S.composeCol + 1
+    : (S.columns.push(new Set()), addColDOM(S.columns.length - 1), S.columns.length - 1);
+  ensureTrailing();
+  updateOverlays(); updateHdrs(); updateStatus(); scrollToCol();
+}
+
+function ensureTrailing() {
+  if (S.composeCol === S.columns.length - 1) {
+    S.columns.push(new Set());
+    addColDOM(S.columns.length - 1);
+    const gs = document.getElementById('gridScroll');
+    const ci = S.columns.length - 1;
+    if (ci * COL_W + COL_W > gs.scrollLeft + gs.clientWidth) gs.scrollLeft = ci * COL_W + COL_W - gs.clientWidth;
+  }
+}
+
+function deleteCol() {
+  const ci = S.composeCol;
+  if (ci === S.columns.length - 1 && !S.columns[ci].size) return; // trailing empty - never delete
+  snapshot();
+  if (S.columns.length === 1) {
+    S.columns[0] = new Set();
+    for (let ni = 0; ni < N; ni++) setCellSel(ni, 0, false);
+    keyEls.forEach(k => k.classList.remove('preview')); stopAll(true); updateStatus(); return;
+  }
+  S.columns.splice(ci, 1);
+  for (let ni = 0; ni < N; ni++) { cellEls[ni][ci]?.remove(); cellEls[ni].splice(ci, 1); }
+  colHdrEls[ci]?.remove(); colHdrEls.splice(ci, 1);
+  rebindFrom(ci);
+  S.composeCol = Math.min(ci, S.columns.length - 1);
+  keyEls.forEach(k => k.classList.remove('preview'));
+  S.columns[S.composeCol].forEach(ni => keyEls[ni]?.classList.add('preview'));
+  stopAll(true); updateOverlays(); updateHdrs(); updateStatus();
+}
+
+function insertCol() {
+  snapshot();
+  const ci = S.composeCol + 1;
+  S.columns.splice(ci, 0, new Set());
+  const gi = document.getElementById('gridInner');
+  gi.querySelectorAll('.grid-row').forEach((row, ni) => {
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell'; cell.dataset.ni = ni; cell.dataset.ci = ci;
+    row.insertBefore(cell, cellEls[ni][ci] || null);
+    cellEls[ni].splice(ci, 0, cell);
+  });
+  const hdr = document.createElement('div');
+  hdr.className = 'col-hdr';
+  hdr.innerHTML = `<span>${ci + 1}</span><div class="col-hdr-dot"></div>`;
+  document.getElementById('colHdrs').insertBefore(hdr, colHdrEls[ci] || null);
+  colHdrEls.splice(ci, 0, hdr);
+  rebindFrom(ci);
+  S.composeCol = ci;
+  keyEls.forEach(k => k.classList.remove('preview'));
+  updateOverlays(); updateHdrs(); updateStatus(); scrollToCol();
+}
+
+// Renumber headers and rebind cell/header data attributes from startCi onward.
+// Uses event delegation for cells, so only header listeners need re-wiring.
+function rebindFrom(startCi) {
+  for (let i = startCi; i < S.columns.length; i++) {
+    // Update cell data attributes
+    for (let ni = 0; ni < N; ni++) { if (cellEls[ni][i]) cellEls[ni][i].dataset.ci = i; }
+    // Renumber and rewire header
+    const old = colHdrEls[i];
+    if (!old) continue;
+    const fresh = old.cloneNode(true);
+    old.parentNode.replaceChild(fresh, old);
+    colHdrEls[i] = fresh;
+    fresh.querySelector('span').textContent = i + 1;
+    wireHdr(fresh, i);
+  }
+}
+
+function setCellSel(ni, ci, on) { cellEls[ni]?.[ci]?.classList.toggle('sel', on); }
+
+function refreshCells() {
+  for (let ni = 0; ni < N; ni++)
+    for (let ci = 0; ci < S.columns.length; ci++)
+      if (cellEls[ni][ci]) cellEls[ni][ci].classList.toggle('sel', S.columns[ci].has(ni));
+}
+
+// ---------------------------------------------
+// OVERLAYS / HEADERS / STATUS / SCROLL
+// ---------------------------------------------
+function updateOverlays() {
+  const totalH = N * ROW_H;
+  if (S.mode === 'compose') {
+    const x = S.composeCol * COL_W;
+    composeOvl.style.cssText = `left:${x}px;width:${COL_W}px;height:${totalH}px;display:block;`;
+    playOvl.style.display = 'none';
+  } else {
+    composeOvl.style.display = 'none';
+    if (S.playCol >= 0) {
+      const x = S.playCol * COL_W;
+      playOvl.style.cssText = `left:${x}px;width:${COL_W}px;height:${totalH}px;display:block;`;
+    } else { playOvl.style.display = 'none'; }
+  }
+}
+
+function updateHdrs() {
+  colHdrEls.forEach((el, ci) => {
+    el.className = 'col-hdr';
+    if (S.mode === 'compose' && ci === S.composeCol) el.classList.add('hdr-compose');
+    else if (S.mode === 'play' && ci === S.playCol) el.classList.add('hdr-play');
+    el.style.opacity = (S.mode === 'compose' && S.columns[ci]?.size === 0 && ci !== S.composeCol) ? '0.45' : '';
+  });
+}
+
+function updateStatus() {
+  const n = S.mode === 'compose'
+    ? (S.columns[S.composeCol]?.size ?? 0)
+    : (S.playCol >= 0 ? S.columns[S.playCol]?.size ?? 0 : 0);
+  document.getElementById('sbNoteCount').textContent = n;
+  document.getElementById('sbColCount').textContent = S.columns.filter(c => c.size).length;
+}
+
+function scrollToCol() {
+  const gs = document.getElementById('gridScroll');
+  const x = S.composeCol * COL_W;
+  if (x < gs.scrollLeft) gs.scrollLeft = x;
+  else if (x + COL_W > gs.scrollLeft + gs.clientWidth) gs.scrollLeft = x + COL_W - gs.clientWidth;
+}
+
+function scrollToPlayCol() {
+  const gs = document.getElementById('gridScroll');
+  gs.scrollLeft = Math.min(S.playCol * COL_W, gs.scrollWidth - gs.clientWidth);
+}
+
+// ---------------------------------------------
+// MODE
+// ---------------------------------------------
+function setMode(newMode) {
+  if (newMode === S.mode) return;
+  if (newMode === 'play') startArmed();
+  else { if (rec.active || rec.armed) stopRecording(); else enterCompose(); }
+}
+
+function enterCompose() {
+  stopAll(true); stopLiveNotes(); S.liveKeys.clear(); S.arrowHeld = false;
+  if (S.playCol >= 0) S.composeCol = S.playCol;
+  S.mode = 'compose'; S.playCol = -1; S.spaceHeld = false;
+  document.body.classList.remove('rec-mode');
+  document.getElementById('hintAction').textContent = 'next';
+  document.getElementById('sbDotMode').className = 'sb-dot on';
+  keyEls.forEach(k => k.classList.remove('preview'));
+  S.columns[S.composeCol].forEach(ni => keyEls[ni]?.classList.add('preview'));
+  if (playOvl) playOvl.style.display = 'none';
+  updateOverlays(); updateHdrs(); updateStatus();
+}
+
+function enterPlay() {
+  stopAll(true); stopLiveNotes(); S.liveKeys.clear(); S.arrowHeld = false;
+  keyEls.forEach(k => k.classList.remove('preview'));
+  S.mode = 'play'; S.playCol = -1; S.spaceHeld = false;
+  document.body.classList.add('rec-mode');
+  document.getElementById('sbDotMode').className = 'sb-dot play-on';
+  updateOverlays(); updateHdrs(); updateStatus();
+}
+
+function clearAll() {
+  snapshot(); stopAll(false);
+  for (let ci = S.columns.length - 1; ci >= 1; ci--) {
+    for (let ni = 0; ni < N; ni++) { cellEls[ni][ci]?.remove(); cellEls[ni].splice(ci, 1); }
+    colHdrEls[ci]?.remove(); colHdrEls.splice(ci, 1);
+  }
+  S.columns = [new Set()]; S.composeCol = 0; S.playCol = -1; S.spaceHeld = false;
+  for (let ni = 0; ni < N; ni++) setCellSel(ni, 0, false);
+  keyEls.forEach(k => k.classList.remove('preview'));
+  if (rec.active || rec.armed) stopRecording();
+  if (S.mode === 'play') enterCompose();
+  updateOverlays(); updateHdrs(); updateStatus();
+  document.getElementById('gridScroll').scrollLeft = 0;
+}
+
+// ---------------------------------------------
+// PLAY MODE - advance
+// ---------------------------------------------
+function advancePlay() {
+  initAudio();
+  const filled = S.columns.map((c, i) => c.size ? i : -1).filter(i => i >= 0);
+  if (!filled.length) return;
+  S.playCol = (!~filled.indexOf(S.playCol))
+    ? filled[0]
+    : filled[(filled.indexOf(S.playCol) + 1) % filled.length];
+  const col = S.columns[S.playCol];
+  playChord(col);
+  playOvl.style.display = 'none';
+  requestAnimationFrame(() => {
+    playOvl.classList.remove('held');
+    updateOverlays(); updateHdrs(); scrollToPlayCol();
+    keyEls.forEach((k, i) => k.classList.toggle('preview', col.has(i)));
+  });
+  playOvl.classList.remove('ov-play'); void playOvl.offsetWidth; playOvl.classList.add('ov-play');
+  updateStatus();
+}
+
+// ---------------------------------------------
+// KEYBOARD
+// ---------------------------------------------
+function noteIdxFromKey(key) {
+  const off = KEY_MAP[key]; if (off === undefined) return -1;
+  const midi = (S.kbOctave + 1 + Math.floor(off / 12)) * 12 + (off % 12);
+  return (midi >= 21 && midi <= 108) ? 108 - midi : -1;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const key = e.key.toLowerCase();
+
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && key === 'z' && !e.repeat) { e.preventDefault(); undo(); return; }
+  if (((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'z') || ((e.ctrlKey || e.metaKey) && key === 'y')) {
+    if (!e.repeat) { e.preventDefault(); redo(); return; }
+  }
+
+  if (e.key === 'Shift' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    setOctave(S.kbOctave >= 5 ? 0 : S.kbOctave + 1); return;
+  }
+  if (e.key === 'Tab' && !e.repeat) { e.preventDefault(); setMode(S.mode === 'compose' ? 'play' : 'compose'); return; }
+
+  if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
+    e.preventDefault();
+    if (S.mode === 'compose') {
+      initAudio(); lockCol(); S.arrowHeld = true;
+      const col = S.columns[S.composeCol];
+      if (col.size) { playChord(col); }
+    } else if (S.mode === 'play') {
+      S.spaceHeld = true;
+      clearTimeout(S.arrowStopTimer); S.arrowStopTimer = null;
+      advancePlay(); playOvl?.classList.add('held');
+    }
+    return;
+  }
+
+  if (!e.repeat && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+    e.preventDefault(); initAudio();
+    clearTimeout(S.arrowStopTimer); S.arrowStopTimer = null;
+    S.arrowHeld = true;
+
+    if (e.key === 'ArrowUp') {
+      if (S.mode === 'compose') {
+        if (S.composeCol !== 0) focusCol(0);
+        const col = S.columns[0];
+        if (col.size) { playChord(col); }
+      } else {
+        const filled = S.columns.map((c,i) => c.size ? i : -1).filter(i => i >= 0);
+        if (filled.length) { S.playCol = filled[0]; playColUpdated(); }
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      const col = S.mode === 'compose' ? S.columns[S.composeCol] : S.columns[S.playCol];
+      if (col?.size) { playChord(col); }
+      if (S.mode === 'play') keyEls.forEach((k, i) => k.classList.toggle('preview', col?.has(i)));
+      return;
+    }
+
+    if (S.mode === 'compose') {
+      if (e.key === 'ArrowLeft' && S.composeCol > 0) focusCol(S.composeCol - 1);
+      else if (e.key === 'ArrowRight' && S.composeCol < S.columns.length - 1) focusCol(S.composeCol + 1);
+      const col = S.columns[S.composeCol];
+      if (col.size) { playChord(col); }
+    } else {
+      const filled = S.columns.map((c,i) => c.size ? i : -1).filter(i => i >= 0);
+      if (!filled.length) return;
+      const pos = filled.indexOf(S.playCol);
+      S.playCol = e.key === 'ArrowLeft'
+        ? (pos <= 0 ? filled[filled.length - 1] : filled[pos - 1])
+        : (pos < 0  ? filled[0] : filled[(pos + 1) % filled.length]);
+      playColUpdated();
+    }
+    return;
+  }
+
+  if (S.mode === 'compose' && !e.repeat && e.key === 'Delete') { e.preventDefault(); deleteCol(); return; }
+  if (S.mode === 'compose' && !e.repeat && e.key === 'Backspace') {
+    e.preventDefault(); snapshot();
+    const col = S.columns[S.composeCol];
+    col.forEach(ni => { setCellSel(ni, S.composeCol, false); keyEls[ni]?.classList.remove('preview'); });
+    col.clear(); stopAll(true); updateStatus(); return;
+  }
+  if (S.mode === 'compose' && !e.repeat && (e.key === '+' || e.key === '=') && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault(); insertCol(); return;
+  }
+
+  if (!e.repeat && !e.ctrlKey && !e.metaKey) {
+    const ni = noteIdxFromKey(key);
+    if (ni !== -1) {
+      if (S.mode === 'compose' && !S.pressedKeys.has(key)) {
+        S.pressedKeys.add(key); initAudio(); toggleNote(ni, true);
+      } else if (S.mode === 'play' && !e.altKey && !S.liveKeys.has(key)) {
+        S.liveKeys.add(key); initAudio(); playLiveNote(ni);
+      }
+    }
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (e.target.tagName === 'INPUT') return;
+
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && S.arrowHeld) {
+    S.arrowHeld = false;
+    clearTimeout(S.arrowStopTimer);
+    S.arrowStopTimer = setTimeout(() => {
+      if (!S.arrowHeld) { stopAll(true); if (S.mode === 'play') keyEls.forEach(k => k.classList.remove('preview')); }
+    }, 60);
+    return;
+  }
+
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    if (S.mode === 'compose' && S.arrowHeld) {
+      S.arrowHeld = false;
+      clearTimeout(S.arrowStopTimer);
+      S.arrowStopTimer = setTimeout(() => { if (!S.arrowHeld) stopAll(true); }, 60);
+    } else if (S.mode === 'play') {
+      S.spaceHeld = false;
+      playOvl?.classList.remove('held');
+      keyEls.forEach(k => k.classList.remove('preview'));
+      // 60ms debounce matches arrow key behavior: if space is pressed again
+      // within 60ms the next advancePlay cancels this before stopAll fires,
+      // preventing the release-tail overlap that causes pops during rapid tapping.
+      clearTimeout(S.arrowStopTimer);
+      S.arrowStopTimer = setTimeout(() => {
+        if (!S.spaceHeld) { stopAll(true); if (S.mode === 'play') keyEls.forEach(k => k.classList.remove('preview')); }
+      }, 60);
+    }
+    return;
+  }
+
+  if (S.mode === 'compose') {
+    const key = e.key.toLowerCase();
+    S.pressedKeys.delete(key);
+    if (noteIdxFromKey(key) !== -1 && !S.pressedKeys.size) stopAll(true);
+  }
+  if (S.mode === 'play') {
+    const key = e.key.toLowerCase();
+    if (S.liveKeys.has(key)) { S.liveKeys.delete(key); const ni = noteIdxFromKey(key); if (ni !== -1) releaseLiveNote(ni); }
+  }
+});
+
+// Helper: after S.playCol is set in play mode, update UI
+function playColUpdated() {
+  const col = S.columns[S.playCol];
+  if (col?.size) { playChord(col); }
+  keyEls.forEach((k, i) => k.classList.toggle('preview', col?.has(i)));
+  updateOverlays(); updateHdrs(); scrollToPlayCol(); updateStatus();
+}
+
+// Prevent default on keys that would scroll the page
+window.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'Tab' || e.key === 'ArrowUp') e.preventDefault();
+}, { passive: false });
+
+// Dismiss hint on any input while armed
+window.addEventListener('keydown',   () => { if (rec.armed) hideRecHint(); }, { capture: true, passive: true });
+window.addEventListener('mousedown', () => { if (rec.armed) hideRecHint(); }, { capture: true, passive: true });
+
+// ---------------------------------------------
+// SCROLL SYNC
+// ---------------------------------------------
+document.getElementById('gridScroll').addEventListener('scroll', function() {
+  document.getElementById('pianoKeys').scrollTop = this.scrollTop;
+  document.getElementById('colHdrs').style.transform = `translateX(-${this.scrollLeft}px)`;
+});
+const pianoKeysEl = document.getElementById('pianoKeys');
+pianoKeysEl.addEventListener('wheel', e => {
+  e.preventDefault(); document.getElementById('gridScroll').scrollTop += e.deltaY;
+}, { passive: false });
+pianoKeysEl.addEventListener('scroll', () => {
+  pianoKeysEl.scrollTop = document.getElementById('gridScroll').scrollTop;
+});
+
+// Global mouseup - end any drag/erase that escaped the grid
+window.addEventListener('mouseup', () => {
+  S.dragNote = null; S.dragOriginal = null; S.erasing = false;
+});
+
+// ---------------------------------------------
+// OCTAVE
+// ---------------------------------------------
+function setOctave(oct) {
+  oct = Math.max(0, Math.min(5, oct));
+  if (oct === S.kbOctave) return;
+  S.kbOctave = oct;
+  document.getElementById('octVal').textContent = oct;
+  NOTES.forEach((note, ni) => {
+    const off = note.midi - ((oct + 1) * 12);
+    const kb = (off >= 0 && SEMI_TO_KEY[off]) ? SEMI_TO_KEY[off] : '';
+    const span = keyEls[ni]?.querySelector('.pkey-kb');
+    if (span) span.textContent = kb;
+  });
+  // Scroll octave into view
+  const topMidi = (oct + 2) * 12 - 1, botMidi = (oct + 1) * 12;
+  const topIdx = 108 - Math.min(topMidi, 108), botIdx = 108 - Math.max(botMidi, 21);
+  const gs = document.getElementById('gridScroll');
+  const topY = topIdx * ROW_H, botY = (botIdx + 1) * ROW_H;
+  if (topY < gs.scrollTop) gs.scrollTop = topY;
+  else if (botY > gs.scrollTop + gs.clientHeight) gs.scrollTop = botY - gs.clientHeight;
+  document.getElementById('pianoKeys').scrollTop = gs.scrollTop;
+}
+document.getElementById('octDn').addEventListener('click', () => setOctave(S.kbOctave - 1));
+document.getElementById('octUp').addEventListener('click', () => setOctave(S.kbOctave + 1));
+
+// ---------------------------------------------
+// WAVE SELECTOR
+// ---------------------------------------------
+document.getElementById('waveSel').addEventListener('click', e => {
+  const btn = e.target.closest('.wave-btn'); if (!btn) return;
+  document.querySelectorAll('.wave-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.waveType = btn.dataset.wave;
+});
+
+// ---------------------------------------------
+// KNOB DIALS
+// ---------------------------------------------
+(function setupKnobs() {
+  const CIRC = 138.2;
+  document.querySelectorAll('.knob').forEach(knob => {
+    const param   = knob.dataset.knob;
+    const min     = +knob.dataset.min;
+    const max     = +knob.dataset.max;
+    const defVal  = +knob.dataset.val;
+    const isExp   = knob.dataset.curve === 'exp';
+    const valEl   = document.getElementById('sv-' + param);
+    const indic   = knob.querySelector('.knob-indicator');
+    const ring    = knob.querySelector('.ring-fill');
+    let cur = defVal;
+
+    const toNorm = v => isExp
+      ? Math.log(v / min) / Math.log(max / min)
+      : (v - min) / (max - min);
+    const fromNorm = n => isExp ? min * Math.pow(max / min, n) : min + n * (max - min);
+
+    const fmtVal = v => {
+      if (['attack','decay','release'].includes(param)) return v.toFixed(2);
+      if (param === 'cutoff') return v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v).toString();
+      if (param === 'resonance') return v.toFixed(1);
+      return v.toFixed(2);
+    };
+
+    // Apply value - uses ramp for audio params to prevent zipper noise in Firefox
+    const applyVal = v => {
+      cur = v; S[param] = v;
+      if (valEl) valEl.textContent = fmtVal(v);
+      const norm = Math.max(0, Math.min(1, toNorm(v)));
+      indic.style.transform = `translate(-50%,-100%) rotate(${-135 + norm * 270}deg)`;
+      ring.style.strokeDashoffset = CIRC * (1 - norm * 0.75);
+      if (param === 'volume'    && S.masterGain) rampParam(S.masterGain.gain, v);
+      if (param === 'cutoff'    && S.filter)     rampParam(S.filter.frequency, v);
+      if (param === 'resonance' && S.filter)     rampParam(S.filter.Q, v);
+    };
+
+    applyVal(cur);
+
+    let dragY = null, dragStart = null;
+    knob.addEventListener('mousedown', e => {
+      e.preventDefault(); dragY = e.clientY; dragStart = cur;
+      document.body.style.cursor = 'ns-resize';
+    });
+    window.addEventListener('mousemove', e => {
+      if (dragY === null) return;
+      const n = Math.max(0, Math.min(1, toNorm(dragStart) + (dragY - e.clientY) * 0.005));
+      applyVal(fromNorm(n));
+    });
+    window.addEventListener('mouseup', () => { if (dragY !== null) { dragY = null; document.body.style.cursor = ''; } });
+    knob.addEventListener('dblclick', () => applyVal(defVal));
+  });
+})();
+
+// ---------------------------------------------
+// METRONOME
+// ---------------------------------------------
+(function setupMetronome() {
+  const btn    = document.getElementById('metroBtn');
+  const pip    = document.getElementById('metroPip');
+  const bpmEl  = document.getElementById('metroBpm');
+  const AHEAD  = 0.1, TICK = 25;
+
+  const setBpm = v => {
+    S.metroBpm = Math.max(30, Math.min(300, Math.round(v)));
+    bpmEl.textContent = S.metroBpm;
+    if (S.metroActive) { stopMetro(); startMetro(); }
+  };
+
+  function schedClick(t) {
+    const ctx = S.ctx;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.frequency.value = 1000; osc.type = 'sine';
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.55, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc.start(t); osc.stop(t + 0.07);
+    setTimeout(() => { pip.classList.add('beat'); setTimeout(() => pip.classList.remove('beat'), 80); },
+      Math.max(0, (t - ctx.currentTime) * 1000));
+  }
+
+  function scheduler() {
+    if (!S.metroActive || !S.ctx) return;
+    const interval = 60 / S.metroBpm;
+    while (S.metroNextBeat < S.ctx.currentTime + AHEAD) { schedClick(S.metroNextBeat); S.metroNextBeat += interval; }
+    S.metroInterval = setTimeout(scheduler, TICK);
+  }
+
+  function startMetro() {
+    initAudio(); S.metroActive = true; S.metroNextBeat = S.ctx.currentTime; scheduler();
+    btn.classList.add('active');
+    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="8" height="8"/></svg>';
+  }
+  function stopMetro() {
+    clearTimeout(S.metroInterval); S.metroInterval = null; S.metroActive = false;
+    btn.classList.remove('active');
+    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="2,1 9,5 2,9"/></svg>';
+    pip.classList.remove('beat');
+  }
+
+  btn.addEventListener('click', () => S.metroActive ? stopMetro() : startMetro());
+
+  let metroDragY = null, metroDragBpm = 0;
+  bpmEl.addEventListener('mousedown', e => {
+    e.preventDefault(); metroDragY = e.clientY; metroDragBpm = S.metroBpm;
+    document.body.style.cursor = 'ns-resize';
+  });
+  window.addEventListener('mousemove', e => {
+    if (metroDragY === null) return;
+    setBpm(metroDragBpm + (metroDragY - e.clientY));
+  });
+  window.addEventListener('mouseup', () => { metroDragY = null; document.body.style.cursor = ''; });
+})();
+
+// ---------------------------------------------
+// REC BUTTON
+// ---------------------------------------------
+document.getElementById('recBtn').addEventListener('click', () =>
+  (rec.active || rec.armed) ? stopRecording() : startArmed());
+
+// ---------------------------------------------
+// MODE TOGGLE BUTTON (TAB key equivalent in UI)
+// ---------------------------------------------
+// setMode is the public handle - used from HTML onclick and cell handlers
+window.setMode = setMode;
+
+// ---------------------------------------------
+// REC PANEL POSITIONING
+// ---------------------------------------------
+function positionRecPanel() {
+  const sb = document.getElementById('statusBar');
+  const ov = document.getElementById('recOverlay');
+  if (sb && ov) ov.style.bottom = sb.offsetHeight + 'px';
+}
+window.addEventListener('resize', positionRecPanel);
+requestAnimationFrame(positionRecPanel);
+document.body.classList.add('rec-open');
+
+// ---------------------------------------------
+// MIDI DRAG-DROP IMPORT
+// ---------------------------------------------
+(function setupMidiDrop() {
+  const spinner = document.getElementById('loadingSpinner');
+  const showSpinner = () => spinner.classList.add('visible');
+  const hideSpinner = () => spinner.classList.remove('visible');
+
+  function loadMidiFile(file) {
+    // Show spinner first, then wait two animation frames so the browser
+    // actually paints it before the synchronous import work begins.
+    showSpinner();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        importMidi(new Uint8Array(ev.target.result), file.name);
+        hideSpinner();
+      };
+      reader.readAsArrayBuffer(file);
+    }));
+  }
+
+  // Drag-and-drop
+  let indicator = null;
+  const showDrop = () => {
+    if (indicator) return;
+    indicator = document.createElement('div');
+    indicator.style.cssText = 'position:fixed;inset:0;z-index:150;border:2px dashed var(--accent);background:rgba(0,200,230,.05);display:flex;align-items:center;justify-content:center;pointer-events:none;';
+    indicator.innerHTML = `<div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--accent);text-shadow:0 0 20px rgba(0,200,230,.5);">DROP MIDI FILE</div>`;
+    document.body.appendChild(indicator);
+  };
+  const hideDrop = () => { indicator?.remove(); indicator = null; };
+
+  document.addEventListener('dragover', e => {
+    e.preventDefault();
+    if ([...(e.dataTransfer.items || [])].some(i => i.kind === 'file')) showDrop();
+  });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget || e.relatedTarget === document.documentElement) hideDrop(); });
+  document.addEventListener('drop', e => {
+    e.preventDefault(); hideDrop();
+    const file = [...e.dataTransfer.files].find(f => /\.(mid|midi)$/i.test(f.name) || f.type === 'audio/midi');
+    if (file) loadMidiFile(file);
+  });
+
+  // Open-button file picker
+  const fileInput = document.getElementById('midiFileInput');
+  document.getElementById('midiOpenBtn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (file) { loadMidiFile(file); fileInput.value = ''; }
+  });
+})();
+
+// ---------------------------------------------
+// INIT
+// ---------------------------------------------
+buildGrid();
+setupGridDelegation();
+updateStatus();
+
+// Lazy audio init on first gesture
+document.addEventListener('mousedown', initAudio, { once: true });
+document.addEventListener('keydown',   initAudio, { once: true });
+
+// Scroll to middle C on load
+requestAnimationFrame(() => {
+  const gs = document.getElementById('gridScroll');
+  gs.scrollTop = 48 * ROW_H - 100; // noteIdx 48 = midi 60 = C4
+  document.getElementById('pianoKeys').scrollTop = gs.scrollTop;
+});
+</script>
+</body>
+</html>
