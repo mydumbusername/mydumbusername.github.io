@@ -1,1 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DriveIn POC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: Arial, Helvetica, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 500px;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            font-size: 2rem;
+        }
+
+        p {
+            margin-bottom: 30px;
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: #d60000;
+            color: #fff;
+            text-decoration: none;
+            padding: 16px 36px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .download-btn:hover {
+            background: #ff1a1a;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>DriveIn App POC Download</h1>
+        <p>
+            <i>
+                Note: This application is provided for security research, testing, and educational purposes. It
+                demonstrates a specific concept and is not intended for actual use.
+            </i>
+        </p>
+
+        <a class="download-btn" href="drivein.apk" download>
+            Download APK
+        </a>
+    </div>
+</body>
+
+</html>
