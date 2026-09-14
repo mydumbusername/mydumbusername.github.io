@@ -1,0 +1,1897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sticky Balls</title>
+<style>
+  :root{
+    --ink:#141416;
+    --paper:#eceeef;
+    --line:#c7cbce;
+    --p1:#e2493f; --p2:#3f7fe2; --p3:#3fbf6a; --p4:#e2b13f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#0d0d0e;overflow:hidden;
+    font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--ink);}
+  canvas{display:block;position:fixed;inset:0;}
+
+  #menu, #lobby, #readyScreen{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--paper);z-index:20;
+  }
+  #lobby{display:none;}
+  #readyScreen{display:none;}
+  #lobbyRoster{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
+  #lobbyRoster .slot{width:34px;height:34px;border:1px solid var(--line);}
+  #lobbyRoster .slot.empty{background:repeating-linear-gradient(45deg,#e2e4e6,#e2e4e6 4px,#d6d8da 4px,#d6d8da 8px);}
+  #lobbyWaitMsg{font-size:13px;color:#6a6f73;margin-top:12px;}
+  .card{
+    width:360px;max-width:88vw;background:var(--paper);border:1px solid var(--line);
+    padding:36px 32px;
+  }
+  .card h1{
+    margin:0 0 4px 0;font-size:28px;font-weight:700;letter-spacing:-0.02em;
+  }
+  .card p.sub{margin:0 0 28px 0;font-size:13px;color:#6a6f73;line-height:1.5;}
+  .copyBox{
+    position:relative;box-sizing:border-box;width:100%;
+    border:1.5px dashed var(--line);padding:10px 14px;margin-bottom:0;
+    text-align:center;cursor:pointer;user-select:all;
+  }
+  .copyBox:hover{border-color:var(--ink);}
+  .copyBox .copiedTag{
+    position:absolute;top:-19px;right:0;text-align:right;
+    font-size:11px;color:var(--ink);opacity:0;transition:opacity 0.15s;pointer-events:none;
+  }
+  .copyBox .copiedTag.show{opacity:1;}
+  #lobbyCodeBig{
+    font-family:'SFMono-Regular',Consolas,monospace;font-size:22px;font-weight:700;
+    letter-spacing:0.16em;color:var(--ink);
+  }
+  #inviteLinkText{
+    display:block;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:#6a6f73;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .copyBox:hover #inviteLinkText{color:var(--ink);}
+  .orDivider{
+    text-align:center;font-size:11px;color:#9a9ea1;letter-spacing:0.08em;
+    text-transform:uppercase;margin:10px 0;
+  }
+  .row{display:flex;gap:8px;margin-bottom:10px;}
+  input[type=text]{
+    flex:1;min-width:0;background:#fff;border:1px solid var(--line);padding:11px 12px;
+    font-family:'SFMono-Regular',Consolas,monospace;font-size:15px;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--ink);
+  }
+  input[type=text]:focus{outline:none;border-color:var(--ink);}
+  button{
+    border:1px solid var(--ink);background:var(--ink);color:var(--paper);
+    padding:11px 16px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:0.02em;
+  }
+  button.ghost{background:transparent;color:var(--ink);}
+  button:hover{opacity:0.85;}
+  button:active{opacity:0.65;}
+  button:disabled{opacity:0.4;cursor:default;}
+  .divider{display:flex;align-items:center;gap:10px;margin:22px 0;color:#9a9fa3;font-size:11px;}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line);}
+  #menuMsg{min-height:18px;font-size:12px;color:#b83a2c;margin-top:10px;}
+
+  #fpsCounter{
+    position:fixed;top:8px;left:8px;z-index:40;display:none;
+    font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;letter-spacing:0.04em;
+    color:#5eff8f;background:rgba(10,10,11,0.55);padding:4px 8px;pointer-events:none;
+  }
+
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;
+    font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
+  #crosshair{
+    position:absolute;top:50%;left:50%;width:16px;height:16px;transform:translate(-50%,-50%);
+    mix-blend-mode:difference;
+  }
+  #crosshair::before,#crosshair::after{content:'';position:absolute;background:#fff;}
+  #crosshair::before{left:50%;top:0;width:2px;height:16px;transform:translateX(-1px);}
+  #crosshair::after{top:50%;left:0;height:2px;width:16px;transform:translateY(-1px);}
+
+  #roster{position:absolute;top:16px;right:16px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+  .rosterEntry{display:flex;align-items:center;gap:6px;color:rgba(242,242,242,0.55);
+    font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;letter-spacing:0.02em;}
+  .rosterEntry .dot{width:9px;height:9px;border-radius:50%;border:1px solid rgba(255,255,255,0.4);flex-shrink:0;}
+  .rosterEntry .count{min-width:2ch;text-align:right;}
+  #hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+    color:rgba(242,242,242,0.75);font-size:11px;letter-spacing:0.03em;text-align:center;}
+  #relockHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:none;
+    color:#f2f2f2;font-size:14px;letter-spacing:0.03em;text-align:center;
+    background:rgba(10,10,11,0.6);padding:10px 18px;pointer-events:none;}
+
+  #winOverlay{
+    position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:space-between;
+    padding:64px 0;z-index:25;color:#f2f2f2;pointer-events:none;
+  }
+  #winOverlay h2{margin:0;font-size:46px;letter-spacing:-0.02em;text-shadow:0 2px 20px rgba(0,0,0,0.5);}
+  #rematchBox{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  #rematchCount{margin:0;font-size:13px;color:var(--ink);text-shadow:0 1px 6px rgba(255,255,255,0.7);}
+  #winOverlay button{padding:12px 22px;pointer-events:auto;}
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <div class="card">
+    <h1>Sticky Balls</h1>
+    <p class="sub">Build a structure out of shot balls, climb it, get through the hole in the ceiling before anyone else. Up to 4 players.</p>
+
+    <button id="createBtn" style="width:100%;">Create room</button>
+
+    <div class="divider">or join a code</div>
+
+    <div class="row">
+      <input type="text" id="codeInput" maxlength="6" placeholder="ABC123" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+      <button class="ghost" id="joinBtn">Join</button>
+    </div>
+    <div id="menuMsg"></div>
+  </div>
+</div>
+
+<div id="lobby">
+  <div class="card">
+    <h1>Sticky Balls</h1>
+    <p class="sub" style="margin-bottom:14px;">Share this code or link with up to 3 others:</p>
+    <div id="codeBox" class="copyBox">
+      <span id="codeCopied" class="copiedTag">copied!</span>
+      <span id="lobbyCodeBig"></span>
+    </div>
+    <div class="orDivider">or</div>
+    <div id="linkBox" class="copyBox">
+      <span id="inviteLinkCopied" class="copiedTag">copied!</span>
+      <span id="inviteLinkText"></span>
+    </div>
+    <div style="height:14px;"></div>
+    <div id="lobbyRoster"></div>
+    <button id="startRoundBtn" style="width:100%;">Start game</button>
+    <p id="lobbyWaitMsg" style="display:none;">Waiting for the host to start…</p>
+    <button id="cancelLobbyBtn" class="ghost" style="width:100%;margin-top:10px;">Cancel</button>
+  </div>
+</div>
+
+<div id="readyScreen">
+  <div class="card">
+    <h1>Get ready</h1>
+    <p class="sub" id="readyCount">0 / 1 players ready</p>
+    <button id="readyBtn" style="width:100%;">Ready</button>
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+<div id="fpsCounter">FPS: --</div>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="roster"></div>
+  <div id="hint">punch, shoot, climb, escape</div>
+  <div id="relockHint">click to regain mouse control</div>
+</div>
+
+<div id="winOverlay">
+  <h2 id="winText">—</h2>
+  <div id="rematchBox">
+    <p id="rematchCount">0 / 1 players ready</p>
+    <button id="againBtn">Play again</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://esm.sh/three@0.160.0';
+import { joinRoom, selfId } from 'https://esm.run/trystero';
+
+/* ---------- constants ---------- */
+const APP_ID       = 'ascent-arena-v1';
+const ROOM_HALF     = 25;      // x/z bounds -25..25
+const CEIL_Y        = 40;
+const HOLE_HALF      = 5;      // square hole half-width in ceiling
+const PLAYER_R       = 0.4;
+const EYE_H          = 1.6;
+const BALL_R         = 0.5;
+const BALL_SPEED     = 28;
+const GRAVITY        = -22;
+const JUMP_V         = 9.1; // ~30% higher than before (height scales with v^2, so this isn't just +30% velocity)
+const MOVE_SPEED     = 6.5;
+const FIRE_COOLDOWN  = 0.1;
+const AUTO_FIRE_DELAY = 0.2;   // hold this long before automatic fire kicks in
+const AUTO_FIRE_RATE  = 0.1;   // seconds between shots once in automatic mode
+const PUNCH_COOLDOWN = 0.2;
+const PUNCH_RANGE    = 3.2;
+const SHOVE_BALL     = 6;
+const SHOVE_PUNCH    = 7.5;
+const BALL_MAX_LIFE  = 3.0;
+const MAX_BALLS_PER_PLAYER = 5000; // live (stuck) ball cap per color; blocks firing the same way the proximity check does
+const DOWN_LOOK_LOCKOUT = THREE.MathUtils.degToRad(5); // can't fire within this many degrees of straight down
+const BARREL_SLIDE_MS = 90;    // purely visual: sliding through the barrel before being expelled
+const BALL_GROW_MS   = 850;    // purely visual: how long an expelled ball takes to grow + converge onto its true path
+const BALL_GROW_START = 0.16;  // starting scale, matched to the glowing core's own size (0.08 / BALL_R)
+const MAX_PLAYERS    = 4;
+const PLAYER_PUSH_R  = 0.75;   // combined radius used to keep players from overlapping
+const CONNECT_MARGIN = 0.08;   // slack distance counted as "touching" for structural connectivity
+const DECAY_MS       = 200;    // per-ball gray-fade duration, and the pace at which popping travels through a severed branch
+const GRAY_STAGGER_MS = 40;    // how fast the gray "you're doomed" indication races ahead of the popping
+const DECAY_COLOR    = 0x74767a;
+
+const PALETTE = [0xe2493f, 0x3f7fe2, 0x3fbf6a, 0xe2b13f];
+const PALETTE_CSS = ['#e2493f','#3f7fe2','#3fbf6a','#e2b13f'];
+const PALETTE_NAMES = ['RED','BLUE','GREEN','YELLOW'];
+const PALETTE_COLOR = PALETTE.map(hex => new THREE.Color(hex));
+const SPAWN_POINTS = [
+  [ ROOM_HALF-4, 0,  ROOM_HALF-4],
+  [-(ROOM_HALF-4), 0,  ROOM_HALF-4],
+  [ ROOM_HALF-4, 0, -(ROOM_HALF-4)],
+  [-(ROOM_HALF-4), 0, -(ROOM_HALF-4)]
+];
+
+function inHoleXZ(x,z){ return Math.abs(x) <= HOLE_HALF && Math.abs(z) <= HOLE_HALF; }
+
+/* ---------- audio (tiny synthesized SFX, no assets) ---------- */
+let actx = null;
+function ensureAudio(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); }
+function blip(freq, dur, type, gain, delay=0){
+  if(!actx) return;
+  const t0 = actx.currentTime + delay;
+  const osc = actx.createOscillator();
+  const g = actx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(20,freq*0.5), t0+dur);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain, t0+0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  osc.connect(g); g.connect(actx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function noiseBurst(dur, gain){
+  if(!actx) return;
+  const t0 = actx.currentTime;
+  const buf = actx.createBuffer(1, actx.sampleRate*dur, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const g = actx.createGain(); g.gain.setValueAtTime(gain, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  src.connect(g); g.connect(actx.destination);
+  src.start(t0);
+}
+function swish(){
+  if(!actx) return;
+  const t0 = actx.currentTime;
+  const dur = 0.13;
+  const buf = actx.createBuffer(1, actx.sampleRate*dur, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const filter = actx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.Q.value = 0.8;
+  filter.frequency.setValueAtTime(3000, t0);
+  filter.frequency.exponentialRampToValueAtTime(500, t0+dur);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.13, t0+0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  src.connect(filter); filter.connect(g); g.connect(actx.destination);
+  src.start(t0);
+}
+function playSound(kind){
+  if(!actx) return;
+  if(kind==='shoot') blip(720,0.09,'square',0.05);
+  else if(kind==='stick') noiseBurst(0.08,0.12);
+  else if(kind==='punch') blip(180,0.08,'square',0.09);
+  else if(kind==='swish') swish();
+  else if(kind==='shove') blip(120,0.15,'sine',0.1);
+  else if(kind==='denied') blip(140,0.05,'square',0.05);
+  else if(kind==='win') { blip(440,0.15,'sine',0.08); blip(660,0.15,'sine',0.08,0.12); blip(880,0.25,'sine',0.08,0.24); }
+}
+
+/* ---------- three.js setup ---------- */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.autoClear = false; // we manage clearing manually for the two-pass viewmodel render
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe1e3);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0xb9bcc0, 1.3);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+dir.position.set(10, 30, 6);
+scene.add(dir);
+
+/* procedural grid texture, no external assets */
+function gridTexture(bg, line, repeat){
+  const size = 512, cell = 64;
+  const c = document.createElement('canvas'); c.width=c.height=size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bg; ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle = line; ctx.lineWidth = 2;
+  for(let i=0;i<=size;i+=cell){
+    ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,size); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(size,i); ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat, repeat);
+  return tex;
+}
+const wallTex  = gridTexture('#eceeef', '#c9cbce', ROOM_HALF*2/6);
+const floorTex = gridTexture('#d8dadd', '#b7bac0', ROOM_HALF*2/6);
+const ceilTex  = gridTexture('#f2f3f4', '#d3d5d8', ROOM_HALF*2/6);
+
+const wallMat  = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.95 });
+const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.95 });
+const ceilMat  = new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 0.95 });
+
+const S = ROOM_HALF*2;
+const wallMeshes = []; // walls + ceiling slabs, collected so the end-round turntable shot can hide them
+let floorMesh;
+// floor
+{
+  const m = new THREE.Mesh(new THREE.BoxGeometry(S, 1, S), floorMat);
+  m.position.set(0, -0.5, 0);
+  scene.add(m);
+  floorMesh = m;
+}
+// four walls
+function wall(w,h,d,x,y,z){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat);
+  m.position.set(x,y,z);
+  scene.add(m);
+  wallMeshes.push(m);
+  return m;
+}
+wall(S,CEIL_Y,1, 0, CEIL_Y/2, -ROOM_HALF-0.5);
+wall(S,CEIL_Y,1, 0, CEIL_Y/2,  ROOM_HALF+0.5);
+wall(1,CEIL_Y,S, -ROOM_HALF-0.5, CEIL_Y/2, 0);
+wall(1,CEIL_Y,S,  ROOM_HALF+0.5, CEIL_Y/2, 0);
+// ceiling, 4 slabs framing a square hole
+{
+  const hh = HOLE_HALF;
+  const north = new THREE.Mesh(new THREE.BoxGeometry(S, 1, ROOM_HALF-hh), ceilMat);
+  north.position.set(0, CEIL_Y+0.5, -(hh + (ROOM_HALF-hh)/2));
+  scene.add(north);
+  wallMeshes.push(north);
+  const south = north.clone();
+  south.position.z = (hh + (ROOM_HALF-hh)/2);
+  scene.add(south);
+  wallMeshes.push(south);
+  const east = new THREE.Mesh(new THREE.BoxGeometry(ROOM_HALF-hh, 1, hh*2), ceilMat);
+  east.position.set(hh + (ROOM_HALF-hh)/2, CEIL_Y+0.5, 0);
+  scene.add(east);
+  wallMeshes.push(east);
+  const west = east.clone();
+  west.position.x = -(hh + (ROOM_HALF-hh)/2);
+  scene.add(west);
+  wallMeshes.push(west);
+}
+
+/* ---------- first-person gun + fist view models ---------- */
+let myColorIdx = 0;
+
+const gunGroup = new THREE.Group();
+// translucent glass barrel, so a fired ball is visible sliding through it
+const gunMetal = new THREE.MeshStandardMaterial({ color:0xeef0f2, roughness:0.1, metalness:0.35, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false });
+const knifeMat = new THREE.MeshStandardMaterial({ color:0xeef0f2, roughness:0.1, metalness:0.35 });
+const gunAccentMat = new THREE.MeshStandardMaterial({ color: PALETTE[0], roughness:0.3, emissive: PALETTE[0], emissiveIntensity:0.5 });
+
+const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.13,0.5,16), gunMetal);
+barrel.rotation.x = Math.PI/2;
+barrel.position.set(0,0,-0.08);
+gunGroup.add(barrel);
+
+const barrelTip = new THREE.Mesh(new THREE.CylinderGeometry(0.116,0.116,0.06,16), gunMetal);
+barrelTip.rotation.x = Math.PI/2;
+barrelTip.position.set(0,0,-0.33);
+gunGroup.add(barrelTip);
+
+const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.18,0.12), knifeMat);
+grip.position.set(0,-0.13,0.14);
+gunGroup.add(grip);
+
+const muzzleRing = new THREE.Mesh(new THREE.TorusGeometry(0.11,0.02,8,20), gunAccentMat);
+muzzleRing.position.set(0,0,-0.34);
+gunGroup.add(muzzleRing);
+
+const muzzleCore = new THREE.Mesh(new THREE.SphereGeometry(0.08,12,10), gunAccentMat);
+muzzleCore.position.set(0,0,-0.05);
+gunGroup.add(muzzleCore);
+
+const muzzleTip = new THREE.Object3D();
+muzzleTip.position.set(0,0,-0.36);
+gunGroup.add(muzzleTip);
+
+const breechPoint = new THREE.Object3D(); // where a fired ball starts its slide down the barrel
+breechPoint.position.set(0,0,-0.05); // matches muzzleCore's position, so a fired ball visibly starts as that same glowing core
+gunGroup.add(breechPoint);
+
+gunGroup.position.set(0.32,-0.28,-0.62);
+
+// small light near the camera so the shiny gun actually catches a highlight
+const gunLight = new THREE.PointLight(0xffffff, 0.6, 4);
+gunLight.position.set(0.3,0,0.2);
+
+const fistGroup = new THREE.Group();
+const knife = new THREE.Mesh(new THREE.ConeGeometry(0.09,0.36,14), knifeMat);
+knife.rotation.x = -Math.PI/2; // point forward, along local -Z
+fistGroup.add(knife);
+const FIST_REST = new THREE.Vector3(-0.42, -0.42, 0.35);
+const FIST_OUT  = new THREE.Vector3(-0.16, -0.16, -0.55);
+fistGroup.position.copy(FIST_REST);
+let punchAnimStart = -999;
+const PUNCH_ANIM_DUR = 0.22;
+function triggerPunchAnim(){ punchAnimStart = performance.now()/1000; }
+
+// The view model lives in its own scene, rendered in a second pass after the
+// depth buffer is cleared. That guarantees it always wins against the world
+// while keeping normal depth testing switched ON among its own parts, so the
+// gun's pieces correctly self-occlude instead of drawing in an arbitrary order.
+const viewModelScene = new THREE.Scene();
+const viewModelRig = new THREE.Object3D(); // manually synced to the camera each frame
+viewModelScene.add(viewModelRig);
+viewModelRig.add(gunGroup, fistGroup, gunLight);
+viewModelScene.add(new THREE.HemisphereLight(0xffffff, 0xb9bcc0, 1.3));
+const vmDir = new THREE.DirectionalLight(0xffffff, 0.6);
+vmDir.position.set(1,1,1);
+viewModelScene.add(vmDir);
+
+scene.add(camera);
+let recoilT = 0;
+function recoilKick(){ recoilT = 1; }
+
+/* ---------- local player state ---------- */
+const localPos = new THREE.Vector3(0, 0, ROOM_HALF-3); // feet
+const localVel = new THREE.Vector3();
+const knockVel = new THREE.Vector3(); // external knockback, decays independently of input
+let yaw = Math.PI, pitch = 0;
+let grounded = false;
+let gameStarted = false, roundOver = false;
+
+const keys = {};
+let lastGroundedTime = -Infinity;
+let lastJumpPressTime = -Infinity;
+const COYOTE_MS = 120;       // grace period to still jump shortly after walking off a ledge
+const JUMP_BUFFER_MS = 120;  // a jump press shortly before landing still registers
+window.addEventListener('keydown', e=>{
+  keys[e.code]=true;
+  if(e.code === 'Space') lastJumpPressTime = performance.now();
+});
+window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+let shakeT = 0, shakeMag = 0;
+
+canvas.addEventListener('click', ()=>{
+  // Guarded so this doesn't fire a redundant requestPointerLock() call while
+  // already locked — e.g. right after Ready acquires the lock, the very
+  // first in-game click (mousedown to shoot, then this 'click' on mouseup)
+  // would otherwise call requestPointerLock() again a moment later. Chrome's
+  // abuse-throttling on repeated lock requests can reject that and tear the
+  // lock down, which shows up as the mouse releasing and the window losing
+  // focus. This listener's actual job is just to let a player re-lock after
+  // clicking back into the canvas once they've lost the lock mid-round.
+  if(gameStarted && document.pointerLockElement !== canvas) canvas.requestPointerLock();
+});
+document.addEventListener('mousemove', e=>{
+  if(document.pointerLockElement !== canvas) return;
+  yaw   -= e.movementX * 0.0022;
+  pitch -= e.movementY * 0.0022;
+  pitch = Math.max(-1.5, Math.min(1.5, pitch));
+});
+canvas.addEventListener('contextmenu', e=> e.preventDefault());
+// Auto-fire is paced the same way every other action's cooldown in this file
+// is (lastPunchT/PUNCH_COOLDOWN, lastShotT/FIRE_COOLDOWN): check elapsed time
+// since the last *attempt* and reset that clock fresh each time, rather than
+// accumulating a fixed schedule (target += rate). FIRE_COOLDOWN and
+// AUTO_FIRE_RATE are numerically equal, so an accumulating schedule can drift
+// slightly out of phase with actual frame times (frame length isn't an even
+// divisor of the rate) until a scheduled attempt lands a hair under 100ms
+// since the last successful shot — at which point shootBall()'s own cooldown
+// gate silently eats that attempt, and the schedule keeps marching on
+// regardless, leaving a real gap in the stream. Exactly how often that
+// phase-alignment lands wrong depends on the browser/monitor's frame pacing,
+// which is why it showed up as a Chrome/Firefox difference. Resetting from
+// "now" on every attempt removes the accumulating target entirely, so there's
+// nothing to drift out of phase with.
+let mouseHeld = false;
+let autoFireHoldStartT = 0;
+let lastAutoAttemptT = 0;
+canvas.addEventListener('mousedown', e=>{
+  if(document.pointerLockElement !== canvas || !gameStarted || roundOver) return;
+  if(e.button===0){
+    mouseHeld = true;
+    shootBall();
+    autoFireHoldStartT = performance.now();
+    lastAutoAttemptT = autoFireHoldStartT;
+  }
+  else if(e.button===2) punch();
+});
+document.addEventListener('mouseup', e=>{
+  if(e.button===0) mouseHeld = false;
+});
+// Escape (or any other route out of pointer lock) doesn't fire a synthetic
+// mouseup, so without this, holding fire and then hitting Escape would leave
+// auto-fire active in the background indefinitely.
+document.addEventListener('pointerlockchange', ()=>{
+  if(document.pointerLockElement !== canvas){
+    mouseHeld = false;
+    if(gameStarted && !roundOver) relockHintEl.style.display = 'block';
+  } else {
+    relockHintEl.style.display = 'none';
+  }
+});
+// The lock request from Ready (or from clicking back in) can be silently
+// denied by the browser; without this listener there was no signal at all
+// when that happened, which made it look like keyboard input worked but
+// mouse capture just never did.
+document.addEventListener('pointerlockerror', ()=>{
+  console.warn('[sticky] pointer lock request was denied');
+  if(gameStarted && !roundOver) relockHintEl.style.display = 'block';
+});
+function updateAutoFire(){
+  if(!mouseHeld) return;
+  const now = performance.now();
+  if(now - autoFireHoldStartT < AUTO_FIRE_DELAY*1000) return; // still in the initial hold delay
+  if(now - lastAutoAttemptT < AUTO_FIRE_RATE*1000) return;
+  lastAutoAttemptT = now; // paced on attempts, not successes, so a denial can't cause every-frame retry spam
+  shootBall(); // may still be denied (too close / looking down / at cap) — that's fine, the next attempt is already paced out at the normal rate
+}
+
+
+/* ---------- networking state ---------- */
+let room = null;
+let sendPos, sendShot, sendStick, sendPop, sendShove, sendWin, sendFull, sendSever, sendReady;
+let myCode = '';
+let peerCount = 1;
+
+const remotePlayers = new Map(); // peerId -> {mesh, gunMount, pos, targetPos, yaw, targetYaw, pitch, targetPitch, colorIdx}
+const stuckBalls = new Map();    // id -> {pos, colorIdx, dying, grayStart, popTime} — rendering lives in the instanced mesh below, not per-ball meshes
+const ballCountByColor = [0,0,0,0]; // live stuck-ball count per color, kept in sync by addStuckBall/removeStuckBall
+const flyingBalls = new Map();   // id -> {pos, vel, color, born}
+const ghostBalls  = new Map();   // id -> {pos, vel, color, mesh, born}
+
+const BALL_GEO = new THREE.SphereGeometry(BALL_R, 16, 12);
+// One material per color, shared by every flying/ghost ball mesh — nothing
+// ever mutates a ball mesh's material (scale/position are animated instead),
+// so there's no reason to allocate a fresh one per shot. Without this, every
+// shot fired — by anyone, as seen by everyone — permanently allocated a new
+// GPU material that was never freed.
+const EPHEMERAL_BALL_MAT = PALETTE.map(hex => new THREE.MeshStandardMaterial({ color: hex, roughness:0.5 }));
+function ballMesh(colorIdx){
+  return new THREE.Mesh(BALL_GEO, EPHEMERAL_BALL_MAT[colorIdx]);
+}
+
+/* ---------- instanced rendering for stuck balls ----------
+   Stuck balls are permanent (never move once placed) and a single structure
+   can realistically reach into the thousands over a match — one Mesh (and
+   one draw call, one geometry buffer) per ball doesn't scale to that. All
+   stuck balls instead share a single InstancedMesh: one geometry, one
+   material, one draw call, with per-ball position/color stored in GPU
+   instance buffers. Flying and ghost balls stay as regular Meshes since
+   there are only ever a handful in flight at once and they need independent
+   scale animation, which instancing doesn't buy anything for.
+   Removing an instance uses the standard swap-with-last-active trick, since
+   InstancedMesh has no native "remove" — the active range must stay
+   contiguous from 0..count-1. */
+const MAX_STUCK_INSTANCES = 4000;
+const stuckInstMat = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.5 });
+const stuckInstances = new THREE.InstancedMesh(BALL_GEO, stuckInstMat, MAX_STUCK_INSTANCES);
+stuckInstances.count = 0;
+stuckInstances.frustumCulled = false; // a single draw call regardless of instance count; not worth the bounding-volume bookkeeping
+stuckInstances.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+stuckInstances.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_STUCK_INSTANCES*3), 3);
+stuckInstances.instanceColor.setUsage(THREE.DynamicDrawUsage);
+scene.add(stuckInstances);
+
+let stuckActiveCount = 0;
+const stuckIdToIndex = new Map();
+const stuckIndexToId = new Array(MAX_STUCK_INSTANCES);
+const _im4 = new THREE.Matrix4();
+const _ic  = new THREE.Color();
+
+function stuckInstanceAdd(id, pos, colorIdx){
+  if(stuckActiveCount >= MAX_STUCK_INSTANCES){
+    console.warn('Max stuck ball count reached (' + MAX_STUCK_INSTANCES + '); further balls will not stick.');
+    return -1;
+  }
+  const index = stuckActiveCount++;
+  stuckIdToIndex.set(id, index);
+  stuckIndexToId[index] = id;
+  _im4.makeTranslation(pos.x, pos.y, pos.z);
+  stuckInstances.setMatrixAt(index, _im4);
+  stuckInstances.setColorAt(index, _ic.copy(PALETTE_COLOR[colorIdx]));
+  stuckInstances.count = stuckActiveCount;
+  stuckInstances.instanceMatrix.needsUpdate = true;
+  stuckInstances.instanceColor.needsUpdate = true;
+  return index;
+}
+function stuckInstanceSetColor(id, color){
+  const index = stuckIdToIndex.get(id);
+  if(index === undefined) return;
+  stuckInstances.setColorAt(index, color);
+  stuckInstances.instanceColor.needsUpdate = true;
+}
+function stuckInstanceRemove(id){
+  const index = stuckIdToIndex.get(id);
+  if(index === undefined) return;
+  const lastIndex = stuckActiveCount - 1;
+  if(index !== lastIndex){
+    // move the last active instance's *current* data (matrix + whatever
+    // color it presently has, mid-fade or not) into the freed slot
+    const lastId = stuckIndexToId[lastIndex];
+    stuckInstances.getMatrixAt(lastIndex, _im4);
+    stuckInstances.setMatrixAt(index, _im4);
+    stuckInstances.getColorAt(lastIndex, _ic);
+    stuckInstances.setColorAt(index, _ic);
+    stuckIdToIndex.set(lastId, index);
+    stuckIndexToId[index] = lastId;
+  }
+  stuckActiveCount--;
+  stuckIdToIndex.delete(id);
+  stuckIndexToId[lastIndex] = undefined;
+  stuckInstances.count = stuckActiveCount;
+  stuckInstances.instanceMatrix.needsUpdate = true;
+  stuckInstances.instanceColor.needsUpdate = true;
+}
+// purely cosmetic easing helper, used for both the size grow and the
+// visual-position convergence onto the true trajectory after exiting the barrel
+function easeOutCubic(t){ t = Math.max(0, Math.min(1, t)); return 1 - Math.pow(1-t, 3); }
+function remoteGunAnchors(peerId){
+  const p = remotePlayers.get(peerId);
+  if(!p || !p.mesh.userData.gunMount) return null;
+  const gm = p.mesh.userData.gunMount;
+  return { breech: gm.localToWorld(new THREE.Vector3(0,0,0)), muzzle: gm.localToWorld(new THREE.Vector3(0,0,-0.92)) };
+}
+// Two-phase cosmetic animation shared by owned and ghost balls: first a
+// quick slide from the barrel's breech to its muzzle (visible through the
+// glass), then — once expelled — a slower grow-and-converge from that exit
+// point onto the true (already-advancing) trajectory. Neither phase affects
+// the underlying physics/collision, which always uses truePosVec directly.
+function updateBallAnimation(b, now, truePosVec, anchors){
+  if(!b.exited){
+    const p = Math.min(1, (now - b.born) / BARREL_SLIDE_MS);
+    if(anchors){ b.visualPos.copy(anchors.breech).lerp(anchors.muzzle, easeOutCubic(p)); }
+    else { b.visualPos.copy(truePosVec); }
+    if(p >= 1){
+      b.exited = true;
+      b.exitPos = (anchors ? anchors.muzzle : truePosVec).clone();
+      b.exitTime = now;
+    }
+    b.mesh.position.copy(b.visualPos);
+    b.mesh.scale.setScalar(BALL_GROW_START);
+    return;
+  }
+  const eased = easeOutCubic((now - b.exitTime) / BALL_GROW_MS);
+  b.visualPos.copy(b.exitPos).lerp(truePosVec, eased);
+  b.mesh.position.copy(b.visualPos);
+  b.mesh.scale.setScalar(BALL_GROW_START + (1 - BALL_GROW_START) * eased);
+}
+function makeAvatar(colorIdx){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: PALETTE[colorIdx], roughness:0.5, emissive: PALETTE[colorIdx], emissiveIntensity:0.35 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(PLAYER_R, 1.0, 6, 10), bodyMat);
+  body.position.y = EYE_H*0.55;
+  g.add(body);
+
+  const accentMat = new THREE.MeshStandardMaterial({ color: PALETTE[colorIdx], roughness:0.3, emissive: PALETTE[colorIdx], emissiveIntensity:0.5 });
+  const metalMat = new THREE.MeshStandardMaterial({ color:0xeef0f2, roughness:0.1, metalness:0.35, transparent:true, opacity:0.5, side:THREE.DoubleSide, depthWrite:false });
+
+  // pivots almost against the body, at mid-torso height; the group's own
+  // yaw plus this pivot's pitch let onlookers read exactly where a player is
+  // aiming. The barrel itself stands in for the arm, since there's no rig.
+  const mount = new THREE.Group();
+  mount.position.set(PLAYER_R + 0.06, EYE_H*0.55, 0);
+  g.add(mount);
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.24,0.92,12), metalMat);
+  barrel.rotation.x = Math.PI/2;
+  barrel.position.set(0, 0, -0.46);
+  mount.add(barrel);
+
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2,0.036,8,16), accentMat);
+  ring.position.set(0, 0, -0.92);
+  mount.add(ring);
+
+  g.userData.gunMount = mount;
+  g.userData.bodyMat = bodyMat;
+  g.userData.accentMat = accentMat;
+  return g;
+}
+
+function updateAvatarColor(p, colorIdx){
+  p.mesh.userData.bodyMat.color.copy(PALETTE_COLOR[colorIdx]);
+  p.mesh.userData.bodyMat.emissive.copy(PALETTE_COLOR[colorIdx]);
+  p.mesh.userData.accentMat.color.copy(PALETTE_COLOR[colorIdx]);
+  p.mesh.userData.accentMat.emissive.copy(PALETTE_COLOR[colorIdx]);
+}
+
+function addStuckBall(id, pos, colorIdx){
+  if(stuckBalls.has(id)) return;
+  const index = stuckInstanceAdd(id, pos, colorIdx);
+  if(index === -1) return; // hit MAX_STUCK_INSTANCES (very unlikely) — ball simply isn't added
+  const b = { pos: pos.clone(), colorIdx, dying:false, grayStart:0, popTime:0 };
+  stuckBalls.set(id, b);
+  ballGridAdd(id, pos);
+  ballCountByColor[colorIdx]++;
+
+  // A ball landing directly on a branch that's already mid-collapse would
+  // otherwise never be marked doomed (the connectivity sweep that decided
+  // who's doomed already ran, before this ball existed), leaving it floating
+  // once its only support disappears. This is a single cheap check against
+  // whatever's already touching it — same cost as any other neighbor lookup
+  // during a stick — not a re-run of the structure-wide BFS: it just reads
+  // the dying flag a neighbor already has, rather than recomputing it.
+  let inherited = null;
+  for(const nid of neighborsOf(pos, id)){
+    const nb = stuckBalls.get(nid);
+    if(nb && nb.dying && (!inherited || nb.popTime < inherited.popTime)) inherited = nb;
+  }
+  if(inherited){
+    b.dying = true;
+    b.grayStart = inherited.grayStart;
+    b.popTime = inherited.popTime;
+    dyingBallIds.add(id);
+  }
+
+  updateRosterHud();
+}
+function removeStuckBall(id){
+  const b = stuckBalls.get(id);
+  if(!b) return;
+  stuckInstanceRemove(id);
+  ballGridRemove(id, b.pos);
+  dyingBallIds.delete(id);
+  stuckBalls.delete(id);
+  ballCountByColor[b.colorIdx]--;
+  updateRosterHud();
+}
+
+/* ---------- spatial index over stuck balls ----------
+   Purely a derived cache behind stuckBalls (never a second source of truth):
+   every ball's position is fixed for life once stuck, so it's added to
+   exactly one cell on creation and removed from exactly one cell on
+   deletion — no re-bucketing, no moving-object edge cases, the easiest
+   version of this technique to get right and keep right.
+   General-purpose "position -> nearby stuck ball ids" query, used by every
+   consumer that needs only the stuck balls actually close to a point rather
+   than the whole structure: adjacency for the sever cascade, per-frame
+   player-vs-ball collision, the flying-ball-vs-stuck-ball check, and the
+   can't-fire-into-a-wall check.
+   Cell size is comfortably larger than the largest distance any of those
+   consumers test against, so checking the surrounding 3x3x3 cells is always
+   sufficient to find every ball actually within range for all of them. */
+const BALL_GRID_CELL = (BALL_R*2 + CONNECT_MARGIN) * 1.1;
+const ballGrid = new Map(); // "cx,cy,cz" -> Set(ballId)
+function ballGridKey(x,y,z){
+  return Math.floor(x/BALL_GRID_CELL)+','+Math.floor(y/BALL_GRID_CELL)+','+Math.floor(z/BALL_GRID_CELL);
+}
+function ballGridAdd(id, pos){
+  const k = ballGridKey(pos.x, pos.y, pos.z);
+  let s = ballGrid.get(k);
+  if(!s){ s = new Set(); ballGrid.set(k, s); }
+  s.add(id);
+}
+function ballGridRemove(id, pos){
+  const k = ballGridKey(pos.x, pos.y, pos.z);
+  const s = ballGrid.get(k);
+  if(s){ s.delete(id); if(s.size === 0) ballGrid.delete(k); }
+}
+function ballGridNearby(pos, radius){
+  const out = [];
+  const reach = Math.max(1, Math.ceil(radius / BALL_GRID_CELL));
+  const cx = Math.floor(pos.x/BALL_GRID_CELL), cy = Math.floor(pos.y/BALL_GRID_CELL), cz = Math.floor(pos.z/BALL_GRID_CELL);
+  for(let dx=-reach; dx<=reach; dx++) for(let dy=-reach; dy<=reach; dy++) for(let dz=-reach; dz<=reach; dz++){
+    const s = ballGrid.get((cx+dx)+','+(cy+dy)+','+(cz+dz));
+    if(s) for(const id of s) out.push(id);
+  }
+  return out;
+}
+
+/* ---------- structural integrity: severing a ball can strand others ---------- */
+function neighborsOf(pos, excludeId){
+  const out = [];
+  const testDist = BALL_R*2 + CONNECT_MARGIN;
+  for(const oid of ballGridNearby(pos, testDist)){
+    if(oid === excludeId) continue;
+    const ob = stuckBalls.get(oid);
+    if(ob && pos.distanceTo(ob.pos) < testDist) out.push(oid);
+  }
+  return out;
+}
+function touchesSurface(pos){
+  if(pos.y - BALL_R <= CONNECT_MARGIN) return true;
+  if(pos.x - BALL_R <= -ROOM_HALF + CONNECT_MARGIN) return true;
+  if(pos.x + BALL_R >=  ROOM_HALF - CONNECT_MARGIN) return true;
+  if(pos.z - BALL_R <= -ROOM_HALF + CONNECT_MARGIN) return true;
+  if(pos.z + BALL_R >=  ROOM_HALF - CONNECT_MARGIN) return true;
+  if(pos.y + BALL_R >= CEIL_Y - CONNECT_MARGIN && !inHoleXZ(pos.x, pos.z)) return true;
+  return false;
+}
+// BFS from every surface-touching ball, skipping anything already excluded (dead)
+function computeRooted(excludeSet){
+  const rooted = new Set();
+  const queue = [];
+  for(const [id,b] of stuckBalls){
+    if(excludeSet.has(id)) continue;
+    if(touchesSurface(b.pos)){ rooted.add(id); queue.push(id); }
+  }
+  while(queue.length){
+    const cur = queue.pop();
+    const curBall = stuckBalls.get(cur);
+    for(const nb of neighborsOf(curBall.pos, cur)){
+      if(excludeSet.has(nb) || rooted.has(nb)) continue;
+      rooted.add(nb);
+      queue.push(nb);
+    }
+  }
+  return rooted;
+}
+// Computes the whole death cascade in one shot: pure geometric connectivity —
+// any ball (any color) that no longer traces back to a surface once the
+// popped ball is gone. This is a single global connectivity pass rather than
+// one per cascade layer, since whether a ball is doomed is a fixed property
+// of the graph once the popped ball is removed — it doesn't change layer to
+// layer, so there's no need to recompute it repeatedly. "Layer" (used only
+// for the visual gray-wave pacing) is worked out afterward with a second,
+// cheap BFS that only ever walks the doomed subset, which is normally far
+// smaller than the whole structure.
+function computeSeverCascade(initialNeighborIds){
+  const rooted = computeRooted(new Set()); // one global pass; popped ball is already gone from stuckBalls
+  const doomed = new Set();
+  for(const id of stuckBalls.keys()){
+    if(!rooted.has(id)) doomed.add(id);
+  }
+  if(doomed.size === 0) return [];
+
+  const cascade = [];
+  const layerOf = new Map();
+  let frontier = initialNeighborIds.filter(id => doomed.has(id));
+  for(const id of frontier) layerOf.set(id, 0);
+  let layer = 0;
+  while(frontier.length){
+    for(const id of frontier) cascade.push({ id, layer });
+    const next = [];
+    for(const id of frontier){
+      const b = stuckBalls.get(id);
+      for(const nb of neighborsOf(b.pos, id)){
+        if(doomed.has(nb) && !layerOf.has(nb)){
+          layerOf.set(nb, layer+1);
+          next.push(nb);
+        }
+      }
+    }
+    frontier = next;
+    layer++;
+    if(layer > 4000) break; // safety cap
+  }
+  // defensive: any doomed ball the hop-BFS never reached (shouldn't happen,
+  // since doomed-ness implies a path back to the cut, but guard anyway)
+  for(const id of doomed){
+    if(!layerOf.has(id)) cascade.push({ id, layer });
+  }
+  return cascade;
+}
+function applySeverChain(chain){
+  const now = performance.now();
+  for(const {id, layer} of chain){
+    const b = stuckBalls.get(id);
+    if(!b || b.dying) continue;
+    b.dying = true;
+    b.grayStart = now + layer*GRAY_STAGGER_MS;      // the blight reaches it quickly...
+    b.popTime   = now + (layer+1)*DECAY_MS;          // ...but it doesn't actually pop until the wave catches up
+    dyingBallIds.add(id);
+  }
+}
+const DECAY_COLOR_THREE = new THREE.Color(DECAY_COLOR);
+// Tracked separately from stuckBalls so this only ever costs work
+// proportional to how many balls are *currently* dying, not the size of the
+// whole structure.
+const dyingBallIds = new Set();
+function updateDyingBalls(now){
+  for(const id of dyingBallIds){
+    const b = stuckBalls.get(id);
+    if(!b){ dyingBallIds.delete(id); continue; } // shouldn't happen, but stay safe
+    if(now >= b.grayStart){
+      const t = Math.min(1, (now - b.grayStart) / DECAY_MS);
+      stuckInstanceSetColor(id, _ic.copy(PALETTE_COLOR[b.colorIdx]).lerp(DECAY_COLOR_THREE, t));
+    }
+    if(now >= b.popTime) removeStuckBall(id); // this deletes from dyingBallIds too
+  }
+}
+function removeGhost(id){
+  const g = ghostBalls.get(id);
+  if(!g) return;
+  scene.remove(g.mesh);
+  ghostBalls.delete(id);
+}
+
+let ballCounter = 0;
+
+/* ---------- room / menu wiring ---------- */
+const menu = document.getElementById('menu');
+const lobby = document.getElementById('lobby');
+const codeBox = document.getElementById('codeBox');
+const codeCopied = document.getElementById('codeCopied');
+const lobbyCodeBig = document.getElementById('lobbyCodeBig');
+const linkBox = document.getElementById('linkBox');
+const inviteLinkText = document.getElementById('inviteLinkText');
+const inviteLinkCopied = document.getElementById('inviteLinkCopied');
+const lobbyRoster = document.getElementById('lobbyRoster');
+const startRoundBtn = document.getElementById('startRoundBtn');
+const lobbyWaitMsg = document.getElementById('lobbyWaitMsg');
+const readyScreen = document.getElementById('readyScreen');
+const readyCountEl = document.getElementById('readyCount');
+const readyBtn = document.getElementById('readyBtn');
+const hud = document.getElementById('hud');
+const rosterEl = document.getElementById('roster');
+const relockHintEl = document.getElementById('relockHint');
+const menuMsg = document.getElementById('menuMsg');
+const winOverlay = document.getElementById('winOverlay');
+const winText = document.getElementById('winText');
+const rematchCountEl = document.getElementById('rematchCount');
+const againBtn = document.getElementById('againBtn');
+
+let isHost = false;
+
+function randomCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for(let i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+// The invite link carries the room code in the URL fragment rather than a
+// query param or path segment: fragments never get sent to any server, so
+// this stays a purely client-side convenience with zero backend involvement.
+// No "room=" key — the fragment never holds anything but a code, so the key
+// would be redundant.
+function inviteLinkFor(code){
+  // location.origin is unreliable here: on a file:// page (e.g. testing
+  // locally), Firefox reports it as the literal string "null", which
+  // produced links like "null/path#...". Using the current href (with any
+  // existing hash stripped) instead sidesteps that entirely — it's just
+  // whatever's actually in the address bar, works the same under file://,
+  // http://, and https://.
+  return `${location.href.split('#')[0]}#${code}`;
+}
+// Reload paths that should land back on a clean menu (cancel, room full)
+// need to drop the fragment first — otherwise the page would just read the
+// same #CODE on reload and immediately auto-rejoin, making "cancel" or
+// "that room's full" loop forever instead of actually returning to the menu.
+function clearRoomHash(){
+  history.replaceState(null, '', location.pathname + location.search);
+}
+
+document.getElementById('createBtn').addEventListener('click', ()=>{
+  isHost = true;
+  enterRoom(randomCode());
+});
+document.getElementById('joinBtn').addEventListener('click', ()=>{
+  const v = document.getElementById('codeInput').value.trim().toUpperCase();
+  if(v.length < 3){ menuMsg.textContent = 'enter a room code'; return; }
+  isHost = false;
+  enterRoom(v);
+});
+document.getElementById('codeInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') document.getElementById('joinBtn').click();
+});
+// Same leave+reload pattern as the "room full" path below: nothing has
+// happened yet at this point (no round, no balls, no other players relying
+// on us), so a clean reload back to the menu is simpler and safer than
+// hand-unwinding the pile of wireAction channels/handlers enterRoom() sets up.
+document.getElementById('cancelLobbyBtn').addEventListener('click', ()=>{
+  clearRoomHash();
+  if(room){ try{ room.leave(); }catch(e){} }
+  location.reload();
+});
+
+// Clicking either box selects its text (visual confirmation of exactly what
+// got copied) and copies it straight to the clipboard — same behavior for
+// the room code and the invite link, so this is wired once and reused.
+function wireCopyBox(boxEl, textEl, tagEl){
+  boxEl.addEventListener('click', async ()=>{
+    const range = document.createRange();
+    range.selectNodeContents(textEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    try{
+      await navigator.clipboard.writeText(textEl.textContent);
+      tagEl.classList.add('show');
+      clearTimeout(boxEl._copiedTimer);
+      boxEl._copiedTimer = setTimeout(()=> tagEl.classList.remove('show'), 1400);
+    }catch(e){
+      // clipboard API unavailable (e.g. insecure context) — the text is still
+      // selected above, so the person can just hit Ctrl/Cmd+C themselves
+    }
+  });
+}
+wireCopyBox(codeBox, lobbyCodeBig, codeCopied);
+wireCopyBox(linkBox, inviteLinkText, inviteLinkCopied);
+
+// Auto-join: a link of the form #CODE drops the visitor straight into
+// that room instead of the menu. Trystero rooms have no central "does this
+// exist" check — joining a code nobody else is in just means waiting alone
+// in the lobby, same as typing in a stale/mistyped code by hand, so there's
+// no special not-found case to handle here.
+{
+  const m = location.hash.match(/^#([A-Za-z0-9]{3,10})$/);
+  if(m){
+    isHost = false;
+    enterRoom(m[1].toUpperCase());
+  }
+}
+
+// Subtle tertiary HUD readout, top-right: one row per connected player, a
+// color-matched dot plus that player's current live (stuck) ball count.
+function updateRosterHud(){
+  rosterEl.innerHTML = '';
+  const mine = document.createElement('div');
+  mine.className = 'rosterEntry';
+  mine.innerHTML = `<span class="dot" style="background:${PALETTE_CSS[myColorIdx]}"></span><span class="count">${ballCountByColor[myColorIdx]}</span>`;
+  rosterEl.appendChild(mine);
+  for(const p of remotePlayers.values()){
+    const e = document.createElement('div');
+    e.className = 'rosterEntry';
+    e.innerHTML = `<span class="dot" style="background:${PALETTE_CSS[p.colorIdx]}"></span><span class="count">${ballCountByColor[p.colorIdx]}</span>`;
+    rosterEl.appendChild(e);
+  }
+}
+function updateLobbyRoster(){
+  lobbyRoster.innerHTML = '';
+  const mineSlot = document.createElement('div');
+  mineSlot.className = 'slot'; mineSlot.style.background = PALETTE_CSS[myColorIdx];
+  lobbyRoster.appendChild(mineSlot);
+  for(const p of remotePlayers.values()){
+    const s = document.createElement('div');
+    s.className = 'slot'; s.style.background = PALETTE_CSS[p.colorIdx];
+    lobbyRoster.appendChild(s);
+  }
+  for(let i=peerCount;i<MAX_PLAYERS;i++){
+    const s = document.createElement('div');
+    s.className = 'slot empty';
+    lobbyRoster.appendChild(s);
+  }
+}
+function updateRoster(){
+  updateRosterHud();
+  updateLobbyRoster();
+}
+
+/* ---------- action helpers (Trystero: makeAction returns {send, onMessage}) ---------- */
+function wireAction(name){
+  const a = room.makeAction(name);
+  return {
+    send: (data, targetPeerId) => a.send(data, targetPeerId ? { target: targetPeerId } : undefined),
+    on: (fn) => { a.onMessage = (data, meta) => fn(data, meta && meta.peerId); }
+  };
+}
+
+// Deterministically assigns each connected peer (including self) a unique
+// slot 0-3 based on sorted peer ID, used for both color and spawn corner.
+function recomputeIdentity(){
+  const ids = [selfId, ...remotePlayers.keys()].sort();
+  myColorIdx = ids.indexOf(selfId) % PALETTE.length;
+  gunAccentMat.color.copy(PALETTE_COLOR[myColorIdx]);
+  gunAccentMat.emissive.copy(PALETTE_COLOR[myColorIdx]);
+  for(const [peerId, p] of remotePlayers){
+    const idx = ids.indexOf(peerId) % PALETTE.length;
+    if(p.colorIdx !== idx){
+      p.colorIdx = idx;
+      updateAvatarColor(p, idx);
+    }
+  }
+  updateRoster();
+}
+
+function enterRoom(code){
+  myCode = code;
+  recomputeIdentity();
+
+  menu.style.display = 'none';
+  lobby.style.display = 'flex';
+  lobbyCodeBig.textContent = code;
+  inviteLinkText.textContent = inviteLinkFor(code);
+  hud.style.display = 'block';
+  startRoundBtn.style.display = isHost ? 'block' : 'none';
+  lobbyWaitMsg.style.display = isHost ? 'none' : 'block';
+  updateRoster();
+
+  room = joinRoom({ appId: APP_ID }, code);
+
+  const posC   = wireAction('pos');
+  const shotC  = wireAction('shot');
+  const stickC = wireAction('stick');
+  const popC   = wireAction('pop');
+  const shoveC = wireAction('shove');
+  const winC   = wireAction('win');
+  const fullC  = wireAction('full');
+  const startC = wireAction('start');
+  const severC = wireAction('sever');
+  const readyC = wireAction('ready');
+
+  sendPos   = (data) => posC.send(data);
+  sendShot  = (data) => shotC.send(data);
+  sendStick = (data) => stickC.send(data);
+  sendPop   = (data) => popC.send(data);
+  sendShove = (data, peerId) => shoveC.send(data, peerId);
+  sendWin   = (data) => winC.send(data);
+  sendFull  = (data, peerId) => fullC.send(data, peerId);
+  sendSever = (data) => severC.send(data);
+  sendReady = (data) => readyC.send(data);
+
+  room.onPeerJoin = (peerId)=>{
+    peerCount++;
+    const mesh = makeAvatar(0);
+    mesh.position.set(0, -999, 0);
+    scene.add(mesh);
+    remotePlayers.set(peerId, {
+      mesh, colorIdx: 0,
+      pos: new THREE.Vector3(0,-999,0),
+      targetPos: new THREE.Vector3(0,-999,0),
+      yaw:0, targetYaw:0, pitch:0, targetPitch:0
+    });
+    recomputeIdentity();
+    if(peerCount > MAX_PLAYERS){
+      sendFull({}, peerId);
+    }
+  };
+  room.onPeerLeave = (peerId)=>{
+    peerCount = Math.max(1, peerCount-1);
+    const p = remotePlayers.get(peerId);
+    if(p){ scene.remove(p.mesh); remotePlayers.delete(peerId); }
+    recomputeIdentity();
+  };
+
+  fullC.on(()=>{
+    alert('That room already has 4 players.');
+    clearRoomHash();
+    try{ room.leave(); }catch(e){}
+    location.reload();
+  });
+
+  posC.on((data, peerId)=>{
+    const p = remotePlayers.get(peerId);
+    if(!p) return;
+    p.targetPos.set(data[0], data[1], data[2]);
+    p.targetYaw = data[3];
+    p.targetPitch = data[4];
+  });
+
+  shotC.on((data, peerId)=>{
+    const truePos = new THREE.Vector3(data.o[0], data.o[1], data.o[2]);
+    const fallbackMuzzle = new THREE.Vector3(data.m[0], data.m[1], data.m[2]);
+    const v = new THREE.Vector3(data.d[0], data.d[1], data.d[2]).multiplyScalar(BALL_SPEED);
+    const mesh = ballMesh(data.c);
+    // start position: the shooter's visible avatar gun breech, if we can find
+    // it; otherwise skip straight to the muzzle (no barrel-slide phase)
+    const shooter = remotePlayers.get(peerId);
+    let startPos = fallbackMuzzle, skipBarrel = true;
+    if(shooter && shooter.mesh.userData.gunMount){
+      startPos = shooter.mesh.userData.gunMount.localToWorld(new THREE.Vector3(0,0,0));
+      skipBarrel = false;
+    }
+    mesh.position.copy(startPos);
+    scene.add(mesh);
+    ghostBalls.set(data.id, {
+      truePos, vel:v, mesh, born: performance.now(), shooterId: peerId,
+      visualPos: startPos.clone(),
+      exited: skipBarrel, exitPos: skipBarrel ? fallbackMuzzle.clone() : null, exitTime: skipBarrel ? performance.now() : 0
+    });
+  });
+
+  stickC.on((data)=>{
+    removeGhost(data.id);
+    addStuckBall(data.id, new THREE.Vector3(data.pos[0], data.pos[1], data.pos[2]), data.c);
+    playSound('stick');
+  });
+
+  popC.on((data)=>{
+    removeStuckBall(data.id);
+  });
+
+  severC.on((data)=>{
+    applySeverChain(data.chain);
+  });
+
+  shoveC.on((data)=>{
+    const [ix, iy, iz] = data.imp;
+    knockVel.x += ix;
+    localVel.y += iy;
+    knockVel.z += iz;
+    // immediate visible displacement so a hit reads instantly even if the
+    // target is pressed up against a wall or structure that would otherwise
+    // let per-frame depenetration cancel out a purely velocity-based push
+    const horizLen = Math.hypot(ix, iz);
+    if(horizLen > 0.0001){
+      localPos.x += (ix/horizLen) * 0.3;
+      localPos.z += (iz/horizLen) * 0.3;
+    }
+    shakeT = 0.25; shakeMag = 0.12;
+    playSound('shove');
+  });
+
+  winC.on((data, peerId)=>{
+    if(roundOver) return;
+    const p = remotePlayers.get(peerId);
+    endRound(p ? p.colorIdx : 0);
+  });
+
+  startC.on(()=>{
+    showReadyScreen();
+  });
+
+  readyC.on((data, peerId)=>{
+    readySet.add(peerId);
+    updateReadyUI();
+    checkAllReady();
+  });
+
+  startRoundBtn.addEventListener('click', ()=>{
+    sendStartAction();
+    showReadyScreen();
+  }, { once:true });
+
+  function sendStartAction(){ startC.send({}); }
+}
+
+/* ---------- ready check, shared by both the pre-round ready screen and
+   the post-round rematch vote on the win screen — same mechanism, same
+   readySet/readyC network action, just triggered from a different button
+   and reflected in a different bit of UI. ---------- */
+const readySet = new Set(); // peerIds (incl. self) who've voted ready this round
+function updateReadyUI(){
+  const label = `${readySet.size} / ${peerCount} players ready`;
+  readyCountEl.textContent = label;
+  rematchCountEl.textContent = label;
+}
+function checkAllReady(){
+  if(readySet.size < peerCount) return;
+  readyScreen.style.display = 'none';
+  winOverlay.style.display = 'none';
+  if(roundOver) resetForNewRound(); // rematch: wipe the old round's state before beginRound() sets up the new one
+  beginRound();
+}
+function showReadyScreen(){
+  lobby.style.display = 'none';
+  readySet.clear();
+  readyBtn.disabled = false;
+  readyScreen.style.display = 'flex';
+  updateReadyUI();
+}
+// The same click that casts a ready vote also does the audio-unlock +
+// pointer-lock request that requires a user gesture (this replaces the old
+// separate "click to enter" step), so by the time everyone's readied up,
+// everyone is already locked in and the round can start immediately.
+function castReadyVote(){
+  ensureAudio();
+  window.focus();
+  canvas.requestPointerLock();
+  readySet.add(selfId);
+  if(sendReady) sendReady({});
+  updateReadyUI();
+  checkAllReady();
+}
+readyBtn.addEventListener('click', ()=>{
+  readyBtn.disabled = true;
+  castReadyVote();
+});
+// Play Again doubles as the rematch's ready button: clicking it casts your
+// vote and updates the shared count above it; once everyone's clicked, the
+// round restarts for everyone at the same moment. tryPlayAgain() is the
+// single entry point (guarded on the disabled flag) so it's safe to also
+// trigger it from anywhere else on the win screen below.
+function tryPlayAgain(){
+  if(againBtn.disabled) return;
+  againBtn.disabled = true;
+  castReadyVote();
+}
+againBtn.addEventListener('click', tryPlayAgain);
+// The mouse is unlocked and free on the win screen (unlike during play), so
+// requiring a precise click on the small button felt unnecessarily fussy —
+// any click or key press while it's showing counts as readying up too.
+document.addEventListener('keydown', ()=>{
+  if(winOverlay.style.display === 'flex') tryPlayAgain();
+});
+document.addEventListener('click', ()=>{
+  if(winOverlay.style.display === 'flex') tryPlayAgain();
+});
+
+// Shared by beginRound() (local player) and resetForNewRound() (remote
+// avatars) so both sides land on the exact same deterministic spawn point,
+// facing, and look-up angle for a given color — no network round-trip needed
+// to know where a peer is about to appear.
+function spawnStateFor(colorIdx){
+  const sp = SPAWN_POINTS[colorIdx % SPAWN_POINTS.length];
+  const horizDistToCenter = Math.hypot(sp[0], sp[2]);
+  return {
+    pos: sp,
+    yaw: Math.atan2(sp[0], sp[2]), // face toward the room center, not out into the corner
+    // tilt up toward the exit hole above the center, as a subtle hint at the objective
+    pitch: Math.max(-1.5, Math.min(1.5, Math.atan2(CEIL_Y - EYE_H, horizDistToCenter)))
+  };
+}
+
+function beginRound(){
+  const s = spawnStateFor(myColorIdx);
+  localPos.set(s.pos[0], s.pos[1], s.pos[2]);
+  localVel.set(0,0,0);
+  knockVel.set(0,0,0);
+  yaw = s.yaw;
+  pitch = s.pitch;
+  gameStarted = true;
+  againBtn.disabled = false; // re-arm for the round after this one
+}
+
+/* ---------- core actions ---------- */
+let lastShotT = 0, lastPunchT = 0;
+const raycaster = new THREE.Raycaster();
+
+function positionBlocked(pos){
+  if(pos.y - BALL_R < 0) return true;
+  if(pos.x - BALL_R < -ROOM_HALF || pos.x + BALL_R > ROOM_HALF) return true;
+  if(pos.z - BALL_R < -ROOM_HALF || pos.z + BALL_R > ROOM_HALF) return true;
+  if(pos.y + BALL_R > CEIL_Y && !inHoleXZ(pos.x, pos.z)) return true;
+  const blockDist = BALL_R*2 + 0.05;
+  for(const id of ballGridNearby(pos, blockDist)){
+    const b = stuckBalls.get(id);
+    if(b && pos.distanceTo(b.pos) < blockDist) return true;
+  }
+  return false;
+}
+
+function shootBall(){
+  const now = performance.now();
+  if(now - lastShotT < FIRE_COOLDOWN*1000) return;
+  if(pitch <= -(Math.PI/2 - DOWN_LOOK_LOCKOUT)){ playSound('denied'); return; } // can't fire straight down
+  if(ballCountByColor[myColorIdx] >= MAX_BALLS_PER_PLAYER){ playSound('denied'); return; } // hit your live-ball cap
+  const d = new THREE.Vector3();
+  camera.getWorldDirection(d);
+  // true flight line matches the crosshair exactly, so shots land where you aim
+  const trueOrigin = new THREE.Vector3();
+  camera.getWorldPosition(trueOrigin);
+  trueOrigin.addScaledVector(d, 0.5);
+  if(positionBlocked(trueOrigin)){ playSound('denied'); return; } // too close to / overlapping a wall or ball
+  lastShotT = now;
+
+  // a small ball rendered *inside the viewmodel's own scene* while it travels
+  // down the barrel — same render pass as the glowing core, so it correctly
+  // nests inside the glass instead of looking drawn behind it. Once it clears
+  // the muzzle we hand off to a normal world-space ball (see updateOwnedBalls).
+  const barrelMesh = ballMesh(myColorIdx);
+  barrelMesh.scale.setScalar(BALL_GROW_START);
+  barrelMesh.position.copy(breechPoint.position);
+  gunGroup.add(barrelMesh);
+
+  const id = selfId + '-' + (ballCounter++);
+  flyingBalls.set(id, {
+    pos: trueOrigin.clone(),
+    vel: d.clone().multiplyScalar(BALL_SPEED),
+    color: myColorIdx,
+    born: now,
+    mesh: null,
+    barrelMesh,
+    exited: false, exitPos: null, exitTime: 0
+  });
+  const muzzleWorld = muzzleTip.getWorldPosition(new THREE.Vector3());
+  sendShot({ id, o:[trueOrigin.x,trueOrigin.y,trueOrigin.z], m:[muzzleWorld.x,muzzleWorld.y,muzzleWorld.z], d:[d.x,d.y,d.z], c: myColorIdx });
+  recoilKick();
+  playSound('shoot');
+}
+
+function punch(){
+  const now = performance.now();
+  if(now - lastPunchT < PUNCH_COOLDOWN*1000) return;
+  lastPunchT = now;
+  triggerPunchAnim();
+  playSound('swish');
+  raycaster.setFromCamera({x:0,y:0}, camera);
+
+  // InstancedMesh raycasting first tests a cached bounding sphere that does
+  // NOT auto-update as instances are added/removed (unlike a regular mesh's
+  // geometry bounds) — recompute it before every punch so it reflects the
+  // structure as it currently stands. Cheap: punches are cooldown-gated, not
+  // a per-frame cost.
+  stuckInstances.computeBoundingSphere();
+  const ballHits = raycaster.intersectObject(stuckInstances);
+  for(const h of ballHits){
+    if(h.distance > PUNCH_RANGE) break; // sorted nearest-first; nothing further will qualify either
+    const id = stuckIndexToId[h.instanceId];
+    const b = stuckBalls.get(id);
+    if(!b || b.dying) continue; // dying balls aren't valid targets; keep looking past them
+    const neighborIds = neighborsOf(b.pos, id);
+    removeStuckBall(id);
+    sendPop({ id });
+    const chain = computeSeverCascade(neighborIds);
+    if(chain.length){
+      applySeverChain(chain);
+      sendSever({ chain });
+    }
+    playSound('punch');
+    return;
+  }
+
+  const meshToPeer = new Map();
+  for(const [peerId,p] of remotePlayers){
+    p.mesh.traverse(o=>{ if(o.isMesh) meshToPeer.set(o, peerId); });
+  }
+  const hits = raycaster.intersectObjects([...meshToPeer.keys()]);
+  if(hits.length && hits[0].distance <= PUNCH_RANGE){
+    const peerId = meshToPeer.get(hits[0].object);
+    const d = new THREE.Vector3();
+    camera.getWorldDirection(d);
+    sendShove({ imp: [d.x*SHOVE_PUNCH, d.y*SHOVE_PUNCH + 2, d.z*SHOVE_PUNCH] }, peerId);
+    playSound('punch');
+  }
+}
+
+/* ---------- physics: local player ---------- */
+const CAP_BOTTOM = 0.3;  // collision spans this range above the feet,
+const CAP_TOP    = 1.55; // so obstacles at any body height (not just underfoot) actually block
+
+// While actively pressing a movement key, the correction below applies at
+// full strength (so climbing/deflection over a bump still works normally).
+// While standing still, only this tiny fraction of the horizontal part of
+// the correction is applied per iteration — the vertical part always stays
+// at full strength so you never sink. This is what stops a stationary player
+// from slowly drifting off an apex: the small sideways nudge from an
+// imperfectly-centered contact gets almost entirely damped out instead of
+// being re-applied at full strength every single frame.
+// This only throttles the position-correction math, never velocity, so it
+// can't interfere with shove/knockback (which move you via knockVel/localVel
+// through plain integration, before this ever runs) or with falling when
+// your footing is deleted (once a ball leaves stuckBalls there's simply
+// nothing here to check against, so gravity just takes over).
+const STATIONARY_FRICTION = 0.06;
+
+function closestPointOnSegment(a, b, p){
+  const ab = new THREE.Vector3().subVectors(b, a);
+  const t = THREE.MathUtils.clamp(new THREE.Vector3().subVectors(p, a).dot(ab) / ab.lengthSq(), 0, 1);
+  return a.clone().addScaledVector(ab, t);
+}
+
+// The capsule query needs a bit more care than a simple point-radius test:
+// it's a tall vertical segment, not a point, so the grid query is centered
+// on the segment's midpoint with its radius expanded by half the segment's
+// length — otherwise balls near the very top or bottom of the capsule could
+// fall outside a naive point query and silently stop colliding.
+const CAPSULE_HALF_LEN = (CAP_TOP - CAP_BOTTOM) / 2;
+const CAPSULE_QUERY_R = PLAYER_R + BALL_R + CAPSULE_HALF_LEN;
+
+function depenetrateAgainstBalls(isMoving){
+  let onTop = false;
+  const horizScale = isMoving ? 1 : STATIONARY_FRICTION;
+  for(let iter=0; iter<3; iter++){
+    const segA = new THREE.Vector3(localPos.x, localPos.y+CAP_BOTTOM, localPos.z);
+    const segB = new THREE.Vector3(localPos.x, localPos.y+CAP_TOP, localPos.z);
+    const mid = new THREE.Vector3(localPos.x, localPos.y+(CAP_BOTTOM+CAP_TOP)/2, localPos.z);
+    for(const id of ballGridNearby(mid, CAPSULE_QUERY_R)){
+      const b = stuckBalls.get(id);
+      if(!b) continue;
+      const cp = closestPointOnSegment(segA, segB, b.pos);
+      const delta = cp.sub(b.pos);
+      const dist = delta.length();
+      const minDist = PLAYER_R + BALL_R;
+      if(dist > 0.0001 && dist < minDist){
+        const mag = (minDist - dist) / dist;
+        const pushX = delta.x * mag * horizScale;
+        const pushY = delta.y * mag;
+        const pushZ = delta.z * mag * horizScale;
+        localPos.x += pushX;
+        localPos.y += pushY;
+        localPos.z += pushZ;
+        if(pushY > 0 && pushY > Math.hypot(pushX,pushZ)*0.5) onTop = true;
+        segA.set(localPos.x, localPos.y+CAP_BOTTOM, localPos.z);
+        segB.set(localPos.x, localPos.y+CAP_TOP, localPos.z);
+      }
+    }
+  }
+  return onTop;
+}
+
+// keeps players from walking through each other; each client resolves this
+// locally against its (slightly latent) view of remote players' positions,
+// so it's approximate but good enough to stop overlap in practice
+function depenetrateAgainstPlayers(){
+  for(const p of remotePlayers.values()){
+    const dx = localPos.x - p.pos.x;
+    const dz = localPos.z - p.pos.z;
+    const dist = Math.hypot(dx, dz);
+    const dy = Math.abs(localPos.y - p.pos.y);
+    if(dist > 0.0001 && dist < PLAYER_PUSH_R && dy < 1.6){
+      const push = (PLAYER_PUSH_R - dist) / dist;
+      localPos.x += dx*push;
+      localPos.z += dz*push;
+    }
+  }
+}
+
+function updateLocalPlayer(dt){
+  const fwd = new THREE.Vector3();
+  camera.getWorldDirection(fwd);
+  fwd.y = 0; fwd.normalize();
+  if(fwd.lengthSq() < 0.0001) fwd.set(0,0,-1);
+  const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0,1,0));
+
+  const ix = (keys['KeyD']?1:0) - (keys['KeyA']?1:0);
+  const iz = (keys['KeyW']?1:0) - (keys['KeyS']?1:0);
+  const move = new THREE.Vector3();
+  move.addScaledVector(fwd, iz);
+  move.addScaledVector(right, ix);
+  const isMoving = move.lengthSq() > 0.0001;
+  if(isMoving){ move.normalize().multiplyScalar(MOVE_SPEED); }
+
+  // combine input-driven movement with any decaying knockback so impacts aren't
+  // instantly erased by the next frame's input-based velocity assignment
+  localVel.x = move.x + knockVel.x;
+  localVel.z = move.z + knockVel.z;
+  const knockDamp = Math.max(0, 1 - dt*3.5);
+  knockVel.x *= knockDamp;
+  knockVel.z *= knockDamp;
+
+  localVel.y += GRAVITY * dt;
+  localPos.addScaledVector(localVel, dt);
+
+  grounded = false;
+  if(localPos.y < 0){ localPos.y = 0; localVel.y = 0; grounded = true; }
+
+  localPos.x = Math.max(-ROOM_HALF+PLAYER_R, Math.min(ROOM_HALF-PLAYER_R, localPos.x));
+  localPos.z = Math.max(-ROOM_HALF+PLAYER_R, Math.min(ROOM_HALF-PLAYER_R, localPos.z));
+
+  if(localPos.y + CAP_TOP > CEIL_Y && !inHoleXZ(localPos.x, localPos.z)){
+    localPos.y = CEIL_Y - CAP_TOP;
+    if(localVel.y > 0) localVel.y = 0;
+  }
+
+  const onTop = depenetrateAgainstBalls(isMoving);
+  if(onTop && localVel.y <= 0){ grounded = true; localVel.y = Math.max(localVel.y, 0); }
+
+  depenetrateAgainstPlayers();
+
+  const jumpNow = performance.now();
+  if(grounded) lastGroundedTime = jumpNow;
+  const jumpRequested = keys['Space'] || (jumpNow - lastJumpPressTime <= JUMP_BUFFER_MS);
+  if(jumpRequested && (jumpNow - lastGroundedTime <= COYOTE_MS)){
+    localVel.y = JUMP_V;
+    grounded = false;
+    lastJumpPressTime = -Infinity; // consume the buffered press
+    lastGroundedTime = -Infinity;  // consume the coyote window so it can't re-trigger mid-air
+  }
+
+  if(!roundOver && localPos.y > CEIL_Y + 0.6){
+    roundOver = true;
+    sendWin && sendWin({});
+    endRound(myColorIdx);
+  }
+
+  let camY = localPos.y + EYE_H;
+  // EYE_H sits 0.05 above CAP_TOP (the collision capsule's actual top), so
+  // without this the capsule correctly stops at the ceiling but the camera,
+  // being slightly "taller," pokes through it by that gap. Clamped to a hair
+  // below CEIL_Y rather than flush against it — sitting exactly on the
+  // surface (e.g. right after jumping into it) is prone to near-plane
+  // clipping, which looked like a brief peek through the ceiling. Skipped
+  // over the hole so escaping through it is unaffected.
+  if(camY > CEIL_Y - 0.14 && !inHoleXZ(localPos.x, localPos.z)) camY = CEIL_Y - 0.14;
+  if(shakeT > 0){
+    shakeT -= dt;
+    const s = shakeMag * (shakeT/0.25);
+    camY += (Math.random()-0.5)*s;
+    camera.position.x = localPos.x + (Math.random()-0.5)*s;
+    camera.position.z = localPos.z + (Math.random()-0.5)*s;
+  } else {
+    camera.position.x = localPos.x;
+    camera.position.z = localPos.z;
+  }
+  camera.position.y = camY;
+  camera.rotation.order = 'YXZ';
+  camera.rotation.set(pitch, yaw, 0);
+
+  if(recoilT > 0){
+    recoilT -= dt*6;
+    gunGroup.position.z = -0.62 + Math.max(0,recoilT)*0.14;
+  } else {
+    gunGroup.position.z = -0.62;
+  }
+
+  const tNow = performance.now()/1000;
+  const pp = (tNow - punchAnimStart) / PUNCH_ANIM_DUR;
+  if(pp >= 0 && pp <= 1){
+    const k = Math.sin(Math.PI * pp);
+    fistGroup.position.lerpVectors(FIST_REST, FIST_OUT, k);
+  } else {
+    fistGroup.position.copy(FIST_REST);
+  }
+}
+
+/* ---------- physics: owned flying balls ---------- */
+function resolveStick(id, pos, colorIdx, ball){
+  if(ball){
+    if(ball.mesh) scene.remove(ball.mesh);
+    if(ball.barrelMesh) gunGroup.remove(ball.barrelMesh);
+  }
+  addStuckBall(id, pos, colorIdx);
+  sendStick({ id, pos:[pos.x,pos.y,pos.z], c: colorIdx });
+  playSound('stick');
+}
+
+function updateOwnedBalls(dt){
+  const now = performance.now();
+  for(const [id, ball] of [...flyingBalls]){
+    const age = (now - ball.born)/1000;
+    if(age > BALL_MAX_LIFE){
+      resolveStick(id, ball.pos, ball.color, ball);
+      flyingBalls.delete(id);
+      continue;
+    }
+    ball.pos.addScaledVector(ball.vel, dt);
+
+    // floor / walls / ceiling
+    if(ball.pos.y - BALL_R < 0){
+      ball.pos.y = BALL_R;
+      resolveStick(id, ball.pos, ball.color, ball); flyingBalls.delete(id); continue;
+    }
+    if(ball.pos.x - BALL_R < -ROOM_HALF){ ball.pos.x = -ROOM_HALF+BALL_R; resolveStick(id, ball.pos, ball.color, ball); flyingBalls.delete(id); continue; }
+    if(ball.pos.x + BALL_R >  ROOM_HALF){ ball.pos.x =  ROOM_HALF-BALL_R; resolveStick(id, ball.pos, ball.color, ball); flyingBalls.delete(id); continue; }
+    if(ball.pos.z - BALL_R < -ROOM_HALF){ ball.pos.z = -ROOM_HALF+BALL_R; resolveStick(id, ball.pos, ball.color, ball); flyingBalls.delete(id); continue; }
+    if(ball.pos.z + BALL_R >  ROOM_HALF){ ball.pos.z =  ROOM_HALF-BALL_R; resolveStick(id, ball.pos, ball.color, ball); flyingBalls.delete(id); continue; }
+    if(ball.pos.y + BALL_R > CEIL_Y && !inHoleXZ(ball.pos.x, ball.pos.z)){
+      ball.pos.y = CEIL_Y - BALL_R;
+      resolveStick(id, ball.pos, ball.color, ball); flyingBalls.delete(id); continue;
+    }
+    if(ball.pos.y > CEIL_Y + 4){ // exited through the hole
+      if(ball.mesh) scene.remove(ball.mesh);
+      if(ball.barrelMesh) gunGroup.remove(ball.barrelMesh);
+      sendPop({ id }); flyingBalls.delete(id); continue;
+    }
+
+    // vs stuck balls
+    let stuckHit = false;
+    for(const bid of ballGridNearby(ball.pos, BALL_R*2)){
+      const b = stuckBalls.get(bid);
+      if(!b) continue;
+      if(ball.pos.distanceTo(b.pos) < BALL_R*2){
+        const n = ball.pos.clone().sub(b.pos).normalize();
+        ball.pos.copy(b.pos).addScaledVector(n, BALL_R*2);
+        resolveStick(id, ball.pos, ball.color, ball);
+        flyingBalls.delete(id);
+        stuckHit = true;
+        break;
+      }
+    }
+    if(stuckHit) continue;
+
+    // vs remote players
+    for(const [peerId,p] of remotePlayers){
+      const center = new THREE.Vector3(p.pos.x, p.pos.y + EYE_H*0.6, p.pos.z);
+      const dist = ball.pos.distanceTo(center);
+      if(dist < BALL_R + PLAYER_R){
+        const incomingDir = ball.vel.clone().normalize(); // knock the player onward, away from the shooter
+        const n = ball.pos.clone().sub(center).normalize();
+        ball.vel.reflect(n);
+        ball.pos.addScaledVector(n, 0.3);
+        sendShove({ imp: [incomingDir.x*SHOVE_BALL, incomingDir.y*SHOVE_BALL + 1.5, incomingDir.z*SHOVE_BALL] }, peerId);
+        playSound('shove');
+        break;
+      }
+    }
+
+    // visual: while in the barrel, animate a mesh rendered inside the
+    // viewmodel's own scene (so it nests inside the glass correctly, same as
+    // the glowing core); once it clears the muzzle, hand off to a normal
+    // world-space ball that grows and converges onto the true trajectory.
+    if(!ball.exited){
+      const p = Math.min(1, (now - ball.born) / BARREL_SLIDE_MS);
+      ball.barrelMesh.position.lerpVectors(breechPoint.position, muzzleTip.position, easeOutCubic(p));
+      if(p >= 1){
+        gunGroup.remove(ball.barrelMesh);
+        ball.barrelMesh = null;
+        ball.exitPos = muzzleTip.getWorldPosition(new THREE.Vector3());
+        ball.mesh = ballMesh(ball.color);
+        ball.mesh.scale.setScalar(BALL_GROW_START);
+        ball.mesh.position.copy(ball.exitPos); // set before adding, so it never renders at the default (0,0,0)
+        scene.add(ball.mesh);
+        ball.exited = true;
+        ball.exitTime = now;
+      }
+    } else {
+      const eased = easeOutCubic((now - ball.exitTime) / BALL_GROW_MS);
+      ball.mesh.position.copy(ball.exitPos).lerp(ball.pos, eased);
+      ball.mesh.scale.setScalar(BALL_GROW_START + (1 - BALL_GROW_START) * eased);
+    }
+  }
+}
+
+function updateGhostBalls(dt){
+  const now = performance.now();
+  for(const [id, g] of [...ghostBalls]){
+    const age = (now-g.born)/1000;
+    if(age > BALL_MAX_LIFE + 0.5){ removeGhost(id); continue; }
+    g.truePos.addScaledVector(g.vel, dt);
+    const anchors = g.exited ? null : remoteGunAnchors(g.shooterId);
+    updateBallAnimation(g, now, g.truePos, anchors);
+  }
+}
+
+function updateRemoteInterp(dt){
+  for(const p of remotePlayers.values()){
+    p.pos.lerp(p.targetPos, Math.min(1, dt*18));
+    p.yaw += (p.targetYaw - p.yaw) * Math.min(1, dt*18);
+    p.pitch += (p.targetPitch - p.pitch) * Math.min(1, dt*18);
+    p.mesh.position.copy(p.pos);
+    p.mesh.rotation.y = p.yaw;
+    if(p.mesh.userData.gunMount) p.mesh.userData.gunMount.rotation.x = p.pitch;
+  }
+}
+
+let lastPosSend = 0;
+function maybeSendPos(){
+  const now = performance.now();
+  if(now - lastPosSend < 40) return;
+  lastPosSend = now;
+  if(sendPos) sendPos([localPos.x, localPos.y, localPos.z, yaw, pitch]);
+}
+
+/* ---------- round end ---------- */
+const ORBIT_TARGET = new THREE.Vector3(0, 14, 0); // a bit above the floor — frames typical structures well
+const ORBIT_RADIUS = 72;
+const ORBIT_HEIGHT = 46;
+const ORBIT_SPEED  = 0.15; // radians/sec
+let endCamAngle = 0;
+let localAvatarMesh = null; // the local player has no body mesh during normal first-person play; created once on first use and reused every round after (repositioned + recolored) rather than recreated, so repeated restarts can't leak geometries/materials
+
+function endRound(colorIdx){
+  roundOver = true;
+  document.exitPointerLock();
+  relockHintEl.style.display = 'none';
+
+  // Same message for every client: which color won, not who's watching.
+  winText.textContent = `${PALETTE_NAMES[colorIdx]} WINS`;
+  winText.style.color = PALETTE_CSS[colorIdx];
+  winOverlay.style.display = 'flex';
+  playSound('win');
+
+  // Start the rematch vote fresh — the pre-round ready phase already used
+  // readySet; this reuses the same counter for "Play again" below.
+  readySet.clear();
+  updateReadyUI();
+
+  // Freeze-frame turntable: hide the HUD, gun/fist view model, and walls/
+  // ceiling, leaving the floor, the stuck-ball structure everyone built, and
+  // every player exactly where they stood at the moment of the win (the sim
+  // already stops updating once roundOver is true, so nothing here needs to
+  // be reset for the structure or the remote players — it's simply what's
+  // already on screen). The local player has no body mesh during normal
+  // first-person play, so one is created here just for this shot.
+  hud.style.display = 'none';
+  viewModelRig.visible = false;
+  for(const m of wallMeshes) m.visible = false;
+
+  if(!localAvatarMesh){
+    localAvatarMesh = makeAvatar(myColorIdx);
+    scene.add(localAvatarMesh);
+  } else {
+    updateAvatarColor({ mesh: localAvatarMesh }, myColorIdx); // colorIdx can change between rounds if peers join/leave
+    localAvatarMesh.visible = true;
+  }
+  localAvatarMesh.position.copy(localPos);
+  localAvatarMesh.rotation.y = yaw;
+  if(localAvatarMesh.userData.gunMount) localAvatarMesh.userData.gunMount.rotation.x = pitch;
+
+  endCamAngle = 0;
+}
+
+function updateEndCam(dt){
+  endCamAngle += dt * ORBIT_SPEED;
+  camera.position.set(
+    ORBIT_TARGET.x + Math.cos(endCamAngle) * ORBIT_RADIUS,
+    ORBIT_HEIGHT,
+    ORBIT_TARGET.z + Math.sin(endCamAngle) * ORBIT_RADIUS
+  );
+  camera.lookAt(ORBIT_TARGET);
+}
+
+// Rematch: rather than resetting a long list of individual fields by hand
+// (easy to miss one and leave stray state behind), every ball is torn down
+// through the exact same per-ball functions normal play already uses to
+// remove a ball (pop, expire, etc.), so this can never drift out of sync
+// with "how a ball is correctly removed" elsewhere in the file. What's left
+// is just undoing the end-screen dressing from endRound() above.
+function resetForNewRound(){
+  for(const id of [...stuckBalls.keys()]) removeStuckBall(id);
+  for(const [id, ball] of [...flyingBalls]){
+    if(ball.mesh) scene.remove(ball.mesh);
+    if(ball.barrelMesh) gunGroup.remove(ball.barrelMesh);
+    flyingBalls.delete(id);
+  }
+  for(const id of [...ghostBalls.keys()]) removeGhost(id);
+
+  if(localAvatarMesh) localAvatarMesh.visible = false;
+  for(const m of wallMeshes) m.visible = true;
+  viewModelRig.visible = true;
+  hud.style.display = 'block';
+
+  // Every peer runs this same reset at roughly the same moment (all
+  // triggered by the same "everyone's ready" event), and spawn point is a
+  // deterministic function of colorIdx — so rather than waiting for each
+  // peer's next position update and smoothly interpolating their avatar
+  // toward it (which is what made them visibly slide/fly from their old
+  // spot to the new spawn), every remote avatar can be snapped straight to
+  // where that peer is about to appear, immediately and exactly.
+  for(const p of remotePlayers.values()){
+    const s = spawnStateFor(p.colorIdx);
+    p.pos.set(s.pos[0], s.pos[1], s.pos[2]);
+    p.targetPos.copy(p.pos);
+    p.yaw = p.targetYaw = s.yaw;
+    p.pitch = p.targetPitch = s.pitch;
+    p.mesh.position.copy(p.pos);
+    p.mesh.rotation.y = p.yaw;
+    if(p.mesh.userData.gunMount) p.mesh.userData.gunMount.rotation.x = p.pitch;
+  }
+
+  roundOver = false;
+  gameStarted = false; // stays false until beginRound() (called right after this) flips it
+}
+
+/* ---------- main loop ---------- */
+/* ---------- perf counter (~ to toggle) ---------- */
+const fpsEl = document.getElementById('fpsCounter');
+let fpsVisible = false;
+window.addEventListener('keydown', e=>{
+  if(e.code === 'Backquote'){
+    fpsVisible = !fpsVisible;
+    fpsEl.style.display = fpsVisible ? 'block' : 'none';
+  }
+});
+let fpsFrames = 0, fpsLastT = performance.now();
+function updateFpsCounter(){
+  fpsFrames++;
+  const now = performance.now();
+  if(now - fpsLastT >= 500){
+    const fps = Math.round(fpsFrames * 1000 / (now - fpsLastT));
+    fpsFrames = 0;
+    fpsLastT = now;
+    if(fpsVisible) fpsEl.textContent = 'FPS: ' + fps;
+  }
+}
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  updateFpsCounter();
+  if(gameStarted && !roundOver){
+    updateLocalPlayer(dt);
+    updateAutoFire();
+    updateOwnedBalls(dt);
+    updateGhostBalls(dt);
+    updateRemoteInterp(dt);
+    updateDyingBalls(performance.now());
+    maybeSendPos();
+  } else if(roundOver){
+    updateEndCam(dt);
+  }
+  viewModelRig.position.copy(camera.position);
+  viewModelRig.quaternion.copy(camera.quaternion);
+  viewModelRig.updateMatrixWorld(true);
+  renderer.clear();
+  renderer.render(scene, camera);
+  renderer.clearDepth();
+  renderer.render(viewModelScene, camera);
+}
+animate();
+</script>
+</body>
+</html>
