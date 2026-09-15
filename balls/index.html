@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -27,6 +26,12 @@
   #lobbyRoster .slot{width:34px;height:34px;border:1px solid var(--line);}
   #lobbyRoster .slot.empty{background:repeating-linear-gradient(45deg,#e2e4e6,#e2e4e6 4px,#d6d8da 4px,#d6d8da 8px);}
   #lobbyWaitMsg{font-size:13px;color:#6a6f73;margin-top:12px;}
+  .spinner{
+    width:28px;height:28px;margin:0 auto;
+    border:3px solid var(--line);border-top-color:var(--ink);
+    border-radius:50%;animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
   .card{
     width:360px;max-width:88vw;background:var(--paper);border:1px solid var(--line);
     padding:36px 32px;
@@ -138,20 +143,29 @@
 <div id="lobby">
   <div class="card">
     <h1>Sticky Balls</h1>
-    <p class="sub" style="margin-bottom:14px;">Share this code or link with up to 3 others:</p>
-    <div id="codeBox" class="copyBox">
-      <span id="codeCopied" class="copiedTag">copied!</span>
-      <span id="lobbyCodeBig"></span>
+
+    <div id="joiningState" style="display:none;">
+      <div id="joiningSpinner" class="spinner"></div>
+      <p class="sub" id="joiningMsg" style="margin:16px 0 0 0;">Joining room…</p>
     </div>
-    <div class="orDivider">or</div>
-    <div id="linkBox" class="copyBox">
-      <span id="inviteLinkCopied" class="copiedTag">copied!</span>
-      <span id="inviteLinkText"></span>
+
+    <div id="lobbyContent">
+      <p class="sub" style="margin-bottom:14px;">Share this code or link with up to 3 others:</p>
+      <div id="codeBox" class="copyBox">
+        <span id="codeCopied" class="copiedTag">copied!</span>
+        <span id="lobbyCodeBig"></span>
+      </div>
+      <div class="orDivider">or</div>
+      <div id="linkBox" class="copyBox">
+        <span id="inviteLinkCopied" class="copiedTag">copied!</span>
+        <span id="inviteLinkText"></span>
+      </div>
+      <div style="height:14px;"></div>
+      <div id="lobbyRoster"></div>
+      <button id="startRoundBtn" style="width:100%;">Start game</button>
+      <p id="lobbyWaitMsg" style="display:none;">Waiting for the host to start…</p>
     </div>
-    <div style="height:14px;"></div>
-    <div id="lobbyRoster"></div>
-    <button id="startRoundBtn" style="width:100%;">Start game</button>
-    <p id="lobbyWaitMsg" style="display:none;">Waiting for the host to start…</p>
+
     <button id="cancelLobbyBtn" class="ghost" style="width:100%;margin-top:10px;">Cancel</button>
   </div>
 </div>
@@ -559,6 +573,15 @@ function updateAutoFire(){
 
 /* ---------- networking state ---------- */
 let room = null;
+let roomAbandonedTimer = null;
+// Trystero has no central registry of "does this room exist" — a room is
+// just whoever's currently connected to it. The only honest signal here is:
+// if you joined as a guest (not the host who just created it) and nobody
+// else has shown up within a generous connection window, there's almost
+// certainly no one there. Long enough to not false-positive on ordinary
+// WebRTC/signaling handshake delay, short enough not to leave someone
+// waiting indefinitely in a dead lobby.
+const ROOM_ABANDONED_TIMEOUT_MS = 10000;
 let sendPos, sendShot, sendStick, sendPop, sendShove, sendWin, sendFull, sendSever, sendReady;
 let myCode = '';
 let peerCount = 1;
@@ -938,6 +961,10 @@ const inviteLinkCopied = document.getElementById('inviteLinkCopied');
 const lobbyRoster = document.getElementById('lobbyRoster');
 const startRoundBtn = document.getElementById('startRoundBtn');
 const lobbyWaitMsg = document.getElementById('lobbyWaitMsg');
+const joiningState = document.getElementById('joiningState');
+const joiningSpinner = document.getElementById('joiningSpinner');
+const joiningMsg = document.getElementById('joiningMsg');
+const lobbyContent = document.getElementById('lobbyContent');
 const readyScreen = document.getElementById('readyScreen');
 const readyCountEl = document.getElementById('readyCount');
 const readyBtn = document.getElementById('readyBtn');
@@ -1114,6 +1141,28 @@ function enterRoom(code){
   hud.style.display = 'block';
   startRoundBtn.style.display = isHost ? 'block' : 'none';
   lobbyWaitMsg.style.display = isHost ? 'none' : 'block';
+
+  if(isHost){
+    // Hosting: you're expected to be alone until others join, so there's
+    // nothing to confirm — show the real lobby (code/link/roster) right away.
+    joiningState.style.display = 'none';
+    lobbyContent.style.display = 'block';
+  } else {
+    // Joining: don't reveal room details at all until another peer is
+    // actually confirmed present — a dead code/link looks identical to a
+    // live one otherwise, right up until you notice nobody's responding.
+    lobbyContent.style.display = 'none';
+    joiningState.style.display = 'block';
+    joiningSpinner.style.display = 'block';
+    joiningMsg.textContent = 'Joining room…';
+    clearTimeout(roomAbandonedTimer);
+    roomAbandonedTimer = setTimeout(()=>{
+      if(remotePlayers.size === 0){
+        joiningSpinner.style.display = 'none';
+        joiningMsg.textContent = 'This room may have been abandoned.';
+      }
+    }, ROOM_ABANDONED_TIMEOUT_MS);
+  }
   updateRoster();
 
   room = joinRoom({ appId: APP_ID }, code);
@@ -1140,6 +1189,14 @@ function enterRoom(code){
   sendReady = (data) => readyC.send(data);
 
   room.onPeerJoin = (peerId)=>{
+    clearTimeout(roomAbandonedTimer);
+    if(!isHost){
+      // First confirmed peer: we now know the room is real, so show the
+      // actual lobby instead of the spinner.
+      joiningState.style.display = 'none';
+      lobbyContent.style.display = 'block';
+      lobbyWaitMsg.style.display = 'block';
+    }
     peerCount++;
     const mesh = makeAvatar(0);
     mesh.position.set(0, -999, 0);
